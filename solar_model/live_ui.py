@@ -292,7 +292,8 @@ def draw_live(config,mode,camera,cutaway,dimensions,landscape,shadows,speed,dura
                 cloud_pct=cloud,camera=camera,cutaway=cutaway,landscape=landscape,shadows=shadows,
                 dimensions=dimensions,size=(1200,620),stamp=scene_stamp,condition=condition)
             try:
-                stpyvista(plotter,key="field_orbit_view",panel_kwargs={"orientation_widget":True})
+                stpyvista(plotter,key="field_orbit_view",backend="panel",
+                    backend_kwargs={"orientation_widget":True})
             finally:
                 plotter.close()
             st.caption("Drag to orbit; scroll to zoom. Switch off automatic updates above for an uninterrupted inspection of this snapshot.")

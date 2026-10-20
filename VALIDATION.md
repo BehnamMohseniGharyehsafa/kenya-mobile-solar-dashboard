@@ -4,7 +4,7 @@ Date: 20 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0. M
 
 ## Automated verification
 
-Latest container-field-lab run: **38 passed in 50.40 s**. This includes the original 26 checks plus packing, shadows, live weather/clock behaviour, stateful dispatch and a real VTK render. The integration test now exercises each one-command deploy/retract action and all eight workspaces. Provider data are mocked in automated tests; actual Nairobi data were also fetched and inspected separately.
+Latest container-field-lab run: **39 passed in 42.87 s**. This includes the original 26 checks plus packing, shadows, live weather/clock behaviour, stateful dispatch, a real VTK render and interactive orbit-component export. Integration tests exercise each one-command deploy/retract action and all eight workspaces. Provider data are mocked in automated tests; actual Nairobi data were also fetched and inspected separately.
 
 Original annual-dashboard baseline: **26 passed in 21.58 s**.
 
@@ -58,6 +58,7 @@ Additional cases cover larger storage, passive cooling, a +10°C ambient stress,
 - The live wind-stow latch requires the configured recovery hold. Stored energy and temperature states match the corresponding continuous dispatch run when it is split into chunks.
 - Manual views with no elapsed time do not create session energy. Charge/discharge and DC balance are also checked in live steps.
 - PyVista renders an actual scene image during the test suite. Linux CI uses Xvfb and OpenGL/EGL libraries. The default compound, packed enclosure and intermediate cutaway were also rendered at 1440 × 810 for visual review.
+- Interactive orbit inspection is tested with the actual installed Streamlit component and a small VTK scene. The supported Panel backend is selected explicitly, including its orientation widget; this avoids an incompatible legacy keyword and the optional Trame dependency.
 - The live browser view displayed Nairobi's model weather and the correct EAT/Dublin clock relationship. The operator-facing scene is expressly labelled as a simulated plant; annual TMY results remain separate.
 
 These checks do not certify structural loads, actuator forces, collision clearance, safety controls, weather observations or field energy performance. See section 12 of the engineering notes for the model's exact scope.

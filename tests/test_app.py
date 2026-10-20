@@ -54,3 +54,29 @@ def test_dashboard_pages_and_controls(monkeypatch):
     app.run()
     assert not app.exception
     assert app.session_state.design.tracking == "Dual axis"
+
+
+def test_interactive_orbit_component(monkeypatch):
+    """Exercise the installed component and its VTK export, without a full landscape."""
+    import pyvista as pv
+    import solar_model.live_ui as live_ui
+    from PIL import Image
+    from io import BytesIO
+    from tests.weather_fixture import forecast_fixture
+
+    png = BytesIO()
+    Image.new("RGB", (8, 8), (30, 60, 60)).save(png, format="PNG")
+    monkeypatch.setattr(live_ui, "rendered_view", lambda *a, **kw: png.getvalue())
+    monkeypatch.setattr(live_ui, "weather_feed", lambda *a, **kw: forecast_fixture())
+
+    def inspection_scene(*args, **kwargs):
+        plotter = pv.Plotter(off_screen=True, window_size=(320, 240))
+        plotter.add_mesh(pv.Cube())
+        return plotter
+
+    monkeypatch.setattr(live_ui, "build_plotter", inspection_scene)
+    app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=60).run()
+    assert not app.exception
+    app.toggle(key="field_orbit").set_value(True).run()
+    assert not app.exception
+    assert app.toggle(key="field_orbit").value
