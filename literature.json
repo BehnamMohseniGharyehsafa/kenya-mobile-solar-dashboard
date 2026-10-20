@@ -1,0 +1,106 @@
+[
+  {
+    "id": "R01",
+    "title": "European Commission JRC — PVGIS 5.3 API",
+    "type": "Primary data service / official documentation",
+    "url": "https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/api-non-interactive-service_en",
+    "finding": "The public API supplies geographically referenced irradiance and meteorological data. SARAH3 covers Africa; an explicit versioned endpoint improves reproducibility.",
+    "application": "Bundle raw API responses for Kenyan presets and retain coordinates, selected source months, retrieval URL and metadata. A TMY is historical climate data, not telemetry."
+  },
+  {
+    "id": "R02",
+    "title": "JRC — Typical meteorological year generator; Huld et al. (2018)",
+    "type": "Official methodology / peer-reviewed research",
+    "url": "https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/pvgis-5-tools/pvgis-typical-meteorological-year-tmy-generator_en",
+    "finding": "A TMY assembles representative months from historical years. The PVGIS output includes an irradiance time offset that must be considered when calculating sun position. Huld et al., Atmosphere 9, 53, DOI 10.3390/atmos9020053, describes the assembly method.",
+    "application": "Map month/day/hour onto one continuous non-leap year, preserve source-year provenance, convert to EAT and apply the reported irradiance offset to solar geometry. Do not interpret model-year labels as actual observations in that year."
+  },
+  {
+    "id": "R03",
+    "title": "Anderson & Mikofski (2020) — Slope-aware backtracking; pvlib singleaxis",
+    "type": "Research method / reference implementation",
+    "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.tracking.singleaxis.html",
+    "finding": "Single-axis geometry depends on axis orientation, rotation limits and ground coverage ratio. Backtracking modifies the sun-facing orientation to mitigate mutual row shading. The cited NREL report is NREL/TP-5K00-76626, DOI 10.2172/1660126.",
+    "application": "Use pvlib's horizontal north–south tracking and backtracking calculation, then apply actual slew/deadband/stow/jam states. Evaluate beam shading from the resulting row geometry."
+  },
+  {
+    "id": "R04",
+    "title": "Faiman (2008) — Outdoor PV module temperature",
+    "type": "Peer-reviewed thermal model / reference implementation",
+    "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.temperature.faiman.html",
+    "finding": "Faiman relates module temperature rise to irradiance and empirical still-air and wind-dependent heat-loss coefficients. DOI 10.1002/pip.813. Its coefficients depend on mounting and wind measurement conditions.",
+    "application": "Estimate PV temperature with editable U0 and U1, after converting 10 m weather wind to a nominal module height. Default coefficients represent open-rack conditions and need site calibration."
+  },
+  {
+    "id": "R05",
+    "title": "Dobos (2014) — PVWatts DC performance model",
+    "type": "National laboratory method / reference implementation",
+    "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.pvsystem.pvwatts_dc.html",
+    "finding": "PVWatts DC output scales rated power with effective irradiance and a linear cell-temperature correction. The temperature coefficient must match the module technology.",
+    "application": "Use pvlib's PVWatts DC equation with generic silicon parameters, separate optical/soiling/wiring/mismatch/availability losses and explicit converter constraints. This is not a simulated switching MPPT controller."
+  },
+  {
+    "id": "R06",
+    "title": "pvlib — Perez plane-of-array irradiance transposition",
+    "type": "Official scientific-library implementation",
+    "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.irradiance.get_total_irradiance.html",
+    "finding": "Tilted-plane irradiance is assembled from direct, sky-diffuse and ground-reflected components. The Perez option uses solar geometry, extraterrestrial irradiance and airmass to represent anisotropic sky diffuse radiation.",
+    "application": "Calculate irradiance at each realised panel orientation, using GHI/DNI/DHI and editable ground albedo. Apply incidence-angle losses to the direct component."
+  },
+  {
+    "id": "R07",
+    "title": "Schimpe et al. (2018) — Container battery electro-thermal efficiency",
+    "type": "Peer-reviewed container-system research",
+    "url": "https://www.sciencedirect.com/science/article/pii/S0306261917315696",
+    "finding": "Applied Energy 210, 211–229, DOI 10.1016/j.apenergy.2017.10.129, couples battery racks, converters, thermal management and controls. The study demonstrates that conversion and auxiliary consumption materially affect system efficiency.",
+    "application": "Resolve battery and inverter losses separately; include controls, tracking and cooling as real loads. Couple battery and room temperatures to dispatch. Do not transfer this paper's prototype efficiencies directly to the generic system."
+  },
+  {
+    "id": "R08",
+    "title": "Saxon et al. (2024) — Li-ion battery thermal characterization",
+    "type": "Peer-reviewed experimental research / NREL-hosted paper",
+    "url": "https://www.nrel.gov/docs/fy24osti/89032.pdf",
+    "finding": "Batteries 10, 136, DOI 10.3390/batteries10040136, examines measured cell/module/pack heat generation and temperature non-uniformity. Pack interconnects and cooling arrangements can change thermal behaviour beyond cell-only estimates.",
+    "application": "Use distinct battery and room thermal nodes, editable thermal mass/conductance and temperature-dependent power permissions. A lumped model cannot validate cell hot spots; rack measurements remain necessary."
+  },
+  {
+    "id": "R09",
+    "title": "IEA PVPS (2025) — Measuring and mitigating soiling",
+    "type": "International research-program technical fact sheet",
+    "url": "https://iea-pvps.org/fact-sheets/fs-soiling-losses/",
+    "finding": "Soiling is a material, site-dependent PV yield loss. Measurements and appropriate mitigation are needed to select a cleaning strategy; a global average is not a local Kenyan calibration.",
+    "application": "Expose soiling as a sensitivity parameter; propose a cleaned reference device or soiling station, filtered cooling air and a practical module/filter cleaning plan. The default 5% is an assumption."
+  },
+  {
+    "id": "R10",
+    "title": "SolarCont — Solarcontainer technical data",
+    "type": "Manufacturer's published example, not independent validation",
+    "url": "https://www.solarcontainer.one/english/home",
+    "finding": "The manufacturer's current example lists 240 modules, up to 140 kWp and approximately 720 m² of deployed coverage. This illustrates how much larger a deployed array can be than its transport enclosure.",
+    "application": "Separate packed transport volume from module surface and deployed ground footprint. The dashboard's 19.8 kWp reference design is independently assumed; this product is not evidence of automatic sun tracking or compatibility with an integrated battery."
+  },
+  {
+    "id": "R11",
+    "title": "solarfold — Mobile container FAQ",
+    "type": "Manufacturer's published packaging and foundation example",
+    "url": "https://www.solarfold.eu/en/faq",
+    "finding": "The FAQ describes a 20 ft high-cube transport container, electrically assisted extension, prewired equipment and ground-dependent support/foundation choices. Storage integration must be checked for the supplied version.",
+    "application": "Specify transport locks, levelling, anchors, prewired connections and verified battery integration. Do not assume that a foldable PV container has daily sun tracking or that all listed equipment fits inside this design."
+  },
+  {
+    "id": "R12",
+    "title": "DNV (2024) — Wind and tracker-mounted module breakage",
+    "type": "Original engineering investigation / PVSC conference research",
+    "url": "https://www.dnv.com/publications/wind-speed-and-rear-glass-breakage-on-bifacial-pv-modules-mounted-on-trackers/",
+    "finding": "The investigation links certain field breakages to wind and mounting conditions, including events below obvious extreme-wind cases. Module support and tracker geometry require their own engineering assessment.",
+    "application": "Treat stow trigger, angle, gust multiplier and recovery hold as configurable scenario values. Do not infer wind certification or adequate anchorage from an hourly TMY or a software stow command."
+  },
+  {
+    "id": "R13",
+    "title": "Reda & Andreas — Solar Position Algorithm via pvlib",
+    "type": "National laboratory solar-position algorithm / official implementation",
+    "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.solarposition.spa_python.html",
+    "finding": "Solar position can be calculated from time, coordinates and atmospheric conditions using the NREL Solar Position Algorithm.",
+    "application": "Calculate ephemeris-based tracking in local EAT with timezone-aware timestamps and the source irradiance time offset. Controller operation is independent of internet availability after weather and clock data are available."
+  }
+]
