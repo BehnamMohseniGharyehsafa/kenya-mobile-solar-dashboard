@@ -1,6 +1,22 @@
 # Kenya mobile solar lab
 
-A Python-only interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. Real JRC PVGIS typical-year weather is bundled for six Kenyan cities; no API key is needed to run the cached cases.
+A Python-only interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. The main workspace shows a detailed 3D container compound with one-command deployment/retraction, current model weather, a clock-driven sun and analytical shadows. Historical JRC PVGIS weather remains bundled for the annual engineering studies.
+
+![Deployed container compound: procedural landscape and test-sun geometry](assets/screenshots/site-deployed.png)
+
+## Container field lab
+
+- **Deploy** opens the roof, lifts the panel cassettes, unfolds the arrays and engages supports. **Retract** isolates PV, packs the panels inside and closes the roof.
+- Inspect the landscape, chain-link fence, gate, concrete base, all PV modules, container corrugations, battery racks, cable trays, converter cabinet, cooling grille and weather mast.
+- Use the live Nairobi clock, an accelerated solar-day tour or a manual study time. Day/night lighting and shadow geometry follow the displayed sun position.
+- Fetch [Open-Meteo](https://open-meteo.com/en/docs) model weather with visible timestamps and freshness. The current-weather scene requires internet access on its first use; annual cached studies work offline.
+- Switch camera, cut away the enclosure, show dimensions, or enable interactive orbit inspection. Export the scene and its technical JSON snapshot.
+
+The mechanism and landscape are engineering illustrations, not a certified machine or a surveyed site. Current weather is model output; the plant state is simulated. Packed and moving panels contribute zero accepted PV generation.
+
+![One-command deployment and reverse packing: fixed test-sun concept preview](assets/screenshots/deployment-sequence.gif)
+
+![Closed container with the default 36-module stack inside](assets/screenshots/container-packed.png)
 
 ## System architecture
 
@@ -25,6 +41,8 @@ flowchart LR
 | Interactive application | `app.py` |
 | PV, storage, thermal and control calculations | `solar_model/` |
 | Raw weather and its provenance | `data/` |
+| Detailed scene, kinematics and clock-driven plant | `solar_model/scene.py`, `mechanics.py`, `live_ui.py`, `live_simulation.py` |
+| Current model weather integration | `solar_model/live_weather.py` |
 | Research and engineering assumptions | `ENGINEERING_NOTES.md`, `literature.json` |
 | Verification record | `VALIDATION.md` |
 | Model and dashboard tests | `tests/` |
@@ -55,12 +73,13 @@ On macOS or Linux, use `python3 -m venv .venv`, activate it with `source .venv/b
 
 ## Explore
 
+- **Container simulator:** full 3D site, deployment/retraction, current weather, local/site clocks, moving sun, shadows, equipment details and live simulated plant state.
 - **Overview:** actual modelled DC generation, useful AC renewable delivery, demand coverage, power traces, seasonal output and an energy-flow diagram.
 - **Sun & tracking:** interactive 3D deployment schematic, solar path, realised panel angles, fixed/single/dual-axis comparison.
 - **Storage & cooling:** SOC, battery/enclosure temperatures, cooling electricity and thermal removal, passive/ventilation/HVAC comparison.
 - **Controls & faults:** state timelines, wind stow, sensor failure, tracker jam, reserve shedding, BMS trip and cooling failure.
 - **Container design:** deployed footprint, equipment schedule, mass limitations and voltage/current screens.
-- **Literature & model:** 13 primary sources, equation definitions and engineering limitations.
+- **Literature & model:** primary research/data sources, equation definitions and engineering limitations.
 - **Data & export:** scenario CSV/JSON/ZIP, provenance, balance residuals, all parameters and custom-design import.
 
 Change inputs in the sidebar and press **Apply design & simulate**. The top metrics cover the complete weather input; the date and time controls inspect a day without changing those totals. Synthetic demonstration weather must be explicitly selected and is clearly labelled.
@@ -71,7 +90,17 @@ The default configuration is conceptual: 19.8 kWp PV, 80 kWh LFP, 20 kW inverter
 
 Read [ENGINEERING_NOTES.md](ENGINEERING_NOTES.md) for the full architecture, equations, model assumptions, controller behaviour and omitted effects. `literature.json` links each research finding to its model/design implication. Manufacturer examples are labelled separately from research and data sources.
 
-[VALIDATION.md](VALIDATION.md) records the 26 passing checks and the default whole-year results, including the visible shortfalls and model limitations.
+[VALIDATION.md](VALIDATION.md) records the model/scene checks and the default whole-year results, including the visible shortfalls and model limitations.
+
+For an existing checkout, update and reinstall dependencies before starting the new 3D workspace:
+
+```powershell
+git pull
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m streamlit run app.py --server.port 8508
+```
+
+On Linux servers, install OpenGL/EGL libraries and Xvfb for off-screen VTK rendering; the GitHub Actions workflow shows the tested setup. A desktop graphics driver is normally sufficient on Windows. All application/model/scene source remains Python; VTK and the optional inspection component supply their packaged rendering runtime.
 
 ```powershell
 # Test the physical consistency and dashboard.

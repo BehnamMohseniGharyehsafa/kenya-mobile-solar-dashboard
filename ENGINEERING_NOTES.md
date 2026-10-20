@@ -175,3 +175,35 @@ Exports include full time series, configuration, source metadata, summaries and 
 Automated checks cover energy conservation, SOC bounds, mutually exclusive charging/discharging, zero-PV outages, unknown initial-energy provenance, wind latch and jam response, hot battery derating/trip, cooling load/temperature coupling, string-voltage constraints, PVGIS chronology/time conversion, uploaded-data rejection and the application pages/controls. Scenario comparisons use the same weather, module capacity and load profile.
 
 These are software and physical-consistency checks. There has been no comparison to a measured container prototype. Module thermal coefficients, local soiling, converter curves, storage usable capacity, thermal conductance and load timing can all materially alter results. A TMY does not quantify interannual uncertainty, extreme storms or P90 energy. Sensitivity controls provide deterministic scenarios, not confidence intervals.
+
+## 12. Container field lab: current weather, clock and deployment
+
+The default workspace is now a detailed 3D container compound. The original annual energy study remains on Overview and the other analysis workspaces. The live scene does not relabel historical TMY output as current production.
+
+### Clock and weather
+
+Live site mode uses the computer's timezone-aware UTC clock converted to Africa/Nairobi. The browser timezone supplies the operator's local clock. Screen updates occur approximately every two seconds while enabled; sun position uses NREL SPA at the displayed site timestamp. An accelerated solar-day mode and a manual study time are explicitly labelled as simulated time. Switching clock mode or jumping backward resets the session's electrical/thermal states. Manual views with zero elapsed time accumulate no energy.
+
+[Open-Meteo](https://open-meteo.com/en/docs) provides modelled current conditions and solar forecasts for the selected coordinates. The application requests instantaneous solar variables, converts pressure to Pa, uses m/s wind and interpolates the downloaded hourly solar series for the display. It shows provider/sample/retrieval timestamps, grid coordinates and response age. These are numerical model conditions, not measurements from the pictured installation. API requests are cached for 15 minutes; an offline cached response is labelled, and data outside its downloaded time window are rejected. Historical or synthetic data are never silently substituted in this workspace. Provider responses are cached locally outside Git.
+
+### Geometry and visual mechanism
+
+The scene contains a corrugated shell, two roof hatches, floor and corner fittings, battery modules, converter cabinets, cable routing, HVAC condenser grille, control cabinet, weather mast, concrete pad and steps. Its compound includes fencing, gate leaves, posts, lights, a north marker and procedural vegetation/terrain. Cutaway and camera modes expose the internal arrangement. The landscape illustrates a Kenyan highland/arid setting according to the selected site; it is not a georeferenced site survey.
+
+Every selected module has a unique packed centre and a deployed pose. The default 36 modules stack in three discrete horizontal slots, with 75 mm vertical layer pitch, below the closed roof. Module centres and corners are exported and tested. The illustrative packing height is screened before deployment. This verifies the drawn default module stack; it does not establish total shipping mass, loading access or clearance to every ancillary component.
+
+Deploy is one command for hatch opening, cassette lift, rail extension/unfolding, support positioning and final locking. Retract first isolates the PV path and reverses this sequence. Motion can be held or reversed. Roof angle, cassette/rail progress, support permission, PV isolation and module count are visible. The animated paths and the telescopic supports are a conceptual mechanism; no actuator torque, dynamic load, hinge fatigue or comprehensive collision analysis is claimed. Presentation duration is independent of real installation time and is not used to claim a physical deployment rate.
+
+The adaptive camera moves from a close container view to a compound overview as deployment progresses. Fixed inspection cameras, dimensions and cutaway are available. The optional PyVista/Panel inspection scene supports orbit and zoom. Turn off automatic updates to keep its snapshot uninterrupted. PNG and JSON exports preserve the displayed state.
+
+### Solar shadows and visual detail
+
+Panel and enclosure shadows are projected along parallel solar rays onto the local compound plane. They change direction/length with solar azimuth/elevation and disappear below the horizon. This visual projection does not resolve distant-terrain occlusion, a radiative sky dome, diffuse penumbrae or energy loss caused by arbitrary objects. The visible sun marker is placed at an intentionally reduced distance so its direction can be inspected; the shadow calculations still use parallel rays. The separate sun-path plot retains exact angular geometry even if a selected camera does not contain the marker. Scene lighting responds to day/night and cloud cover.
+
+### Coupling to the plant
+
+Packed, partly deployed and retracting arrays deliver zero accepted PV power. The contactor is only enabled at full deployment with the deploy target active. Solar electrical calculations reuse the existing Perez/Faiman/PVWatts model at the realised orientation. Wind-gust stow uses on/off thresholds and the configured recovery hold; an above-threshold weather-model gust also inhibits new deployment and holds deployment in progress. This is a supervisory study, not a safety-rated weather input.
+
+The existing battery/room dispatch solver now accepts an optional prior state and elapsed-time step. Live mode carries stored chemical energy, PV-origin inventory, temperatures and controller latches between updates. Elapsed intervals are subdivided into at most 60-second dispatch steps with thermal substeps no greater than 30 seconds. Forecast/solar power at the screen update is held over the elapsed interval; accelerated previews are an approximation and are not a replacement for the annual solver's regular weather/control steps. The model reports simulated session PV energy, supplied AC load, unmet load, cooling, DC balance and battery state. Initial charge is still not counted as renewable generation.
+
+The new checks cover panel packing/extent, finite intermediate poses, analytical shadow direction, timezone invariance, weather interpolation/range checks, zero PV while packed, live wind-stow recovery, stateful-dispatch continuity, zero-time energy behaviour, one-command UI deployment/retraction and an actual VTK image render. These are software/geometry consistency checks; field validation remains outstanding.

@@ -11,15 +11,20 @@ def _derate(temp, start, trip):
     return float(np.clip((trip - temp) / (trip - start), 0, 1))
 
 
-def simulate_dispatch(weather, pv, c):
+def simulate_dispatch(weather, pv, c, initial_state=None, return_state=False, dt_hours=None):
     c.validate()
-    dt = c.step_minutes / 60
+    dt = c.step_minutes / 60 if dt_hours is None else float(dt_hours)
+    if not np.isfinite(dt) or dt <= 0:
+        raise ValueError("Dispatch time step must be positive and finite.")
     capacity = c.battery_kwh * c.battery_soh
     energy = capacity * c.soc_initial
     green = 0.0  # provenance of initial charge is unknown; never call it renewable
     room = float(weather.temp_air.iloc[0])
     battery = room
     hvac_on, battery_trip, shed_latch = False, False, False
+    if initial_state is not None:
+        energy, green, room, battery = (initial_state[k] for k in ("energy", "green", "room", "battery"))
+        hvac_on, battery_trip, shed_latch = (initial_state[k] for k in ("hvac_on", "battery_trip", "shed_latch"))
     length, width, height = c.dimensions
     roof_area = length * width
     shell_area = 2 * (length * width + length * height + width * height)
@@ -145,7 +150,11 @@ def simulate_dispatch(weather, pv, c):
             "ems_state": mode, "load_shed": shed_latch,
             "battery_trip": battery_trip,
             "cooling_state": "FAULT" if hvac_failure else "FREE COOLING" if free_cooling else "COMPRESSOR" if compressor_request > 0 else "PASSIVE"})
-    return pd.DataFrame(rows, index=weather.index)
+    output = pd.DataFrame(rows, index=weather.index)
+    if return_state:
+        return output, {"energy": energy, "green": green, "room": room, "battery": battery,
+            "hvac_on": hvac_on, "battery_trip": battery_trip, "shed_latch": shed_latch}
+    return output
 
 
 def summarize(result, c):

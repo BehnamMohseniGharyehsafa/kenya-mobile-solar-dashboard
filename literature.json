@@ -102,5 +102,21 @@
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.solarposition.spa_python.html",
     "finding": "Solar position can be calculated from time, coordinates and atmospheric conditions using the NREL Solar Position Algorithm.",
     "application": "Calculate ephemeris-based tracking in local EAT with timezone-aware timestamps and the source irradiance time offset. Controller operation is independent of internet availability after weather and clock data are available."
+  },
+  {
+    "id": "R14",
+    "title": "Open-Meteo — Current weather and solar forecast API",
+    "type": "Primary weather-model data service / official documentation",
+    "url": "https://open-meteo.com/en/docs",
+    "finding": "The service publishes numerical current conditions and solar forecasts. Instantaneous solar variables are distinguished from interval averages.",
+    "application": "Drive the live container workspace with attributable provider data, explicit timestamps, m/s winds, converted pressure and interpolated instantaneous irradiance. Expose response age and offline status; do not call model conditions on-site measurements."
+  },
+  {
+    "id": "R15",
+    "title": "PyVista — Python 3D geometry and off-screen rendering",
+    "type": "Official scientific visualization documentation",
+    "url": "https://docs.pyvista.org/api/plotting/_autosummary/pyvista.plotter",
+    "finding": "PyVista provides a Python interface to VTK geometry, lighting, cameras and off-screen rendering.",
+    "application": "Construct the compound, enclosure, equipment and panel geometry in Python. Provide reproducible raster views plus an optional interactive inspection scene. Visual detail is separate from validation of the proposed mechanism."
   }
 ]

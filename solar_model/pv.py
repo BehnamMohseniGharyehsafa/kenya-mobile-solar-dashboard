@@ -77,14 +77,14 @@ def orientation(weather, solar, c):
         "tracker_rotation_deg": rotation, "tracker_kw": motor, "tracker_state": states}, index=weather.index)
 
 
-def simulate_pv(weather, c):
+def simulate_pv(weather, c, pose_override=None):
     c.validate()
     solar_times = pd.DatetimeIndex(weather.solar_time)
     solar = pvlib.solarposition.get_solarposition(solar_times, c.latitude, c.longitude,
         altitude=c.altitude_m, pressure=weather.pressure.to_numpy(),
         temperature=weather.temp_air.to_numpy(), method="nrel_numpy")
     solar.index = weather.index
-    pose = orientation(weather, solar, c)
+    pose = orientation(weather, solar, c) if pose_override is None else pose_override.copy()
     extra = pvlib.irradiance.get_extra_radiation(solar_times).to_numpy()
     airmass = pvlib.atmosphere.get_relative_airmass(solar.apparent_zenith).fillna(0)
     poa = pvlib.irradiance.get_total_irradiance(pose.surface_tilt_deg, pose.surface_azimuth_deg,

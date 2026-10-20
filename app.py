@@ -20,7 +20,7 @@ from solar_model.pv import string_checks
 from solar_model import charts
 
 ROOT = Path(__file__).resolve().parent
-st.set_page_config(page_title="Kenya | Mobile solar lab", page_icon="☀️", layout="wide")
+st.set_page_config(page_title="Kenya | Mobile solar lab", page_icon="☀️", layout="wide",initial_sidebar_state="collapsed")
 
 
 @st.cache_data(show_spinner=False)
@@ -65,7 +65,7 @@ def sidebar():
                 lon = st.number_input("Longitude (°)", 33.8, 42.0, 36.8172, format="%.4f")
                 alt = st.number_input("Elevation (m)", 0.0, 5000.0, 1795.0)
             tracking = st.selectbox("Array orientation", MODES, index=1)
-            with st.expander("PV array & electrical", expanded=True):
+            with st.expander("PV array & electrical", expanded=False):
                 strings = st.number_input("Parallel strings", 1, 24, 4)
                 series = st.number_input("Modules per string", 3, 24, 9)
                 module_wp = st.number_input("Module rating (Wp)", 100.0, 800.0, 550.0, 10.0)
@@ -188,6 +188,12 @@ def sidebar():
 
 
 c, weather_mode, uploaded = sidebar()
+page = st.selectbox("Workspace", ["Container simulator", "Overview", "Sun & tracking", "Storage & cooling", "Controls & faults", "Container design", "Literature & model", "Data & export"],label_visibility="collapsed",key="main_page")
+if page == "Container simulator":
+    from solar_model.live_ui import render_live_site
+    render_live_site(c)
+    st.stop()
+
 try:
     if weather_mode == "Synthetic demonstration":
         raw, meta = demo_weather(c)
@@ -227,7 +233,6 @@ metric_row([
     ("User demand covered", f"{summary['load_coverage_fraction']*100:.1f}%", f"{summary['unserved_kwh']:,.0f} kWh unserved; no grid or generator"),
     ("Cooling electricity", f"{summary['cooling_kwh']:,.0f} kWh", f"Battery maximum {summary['battery_max_c']:.1f}°C")])
 
-page = st.radio("Explore the system", ["Overview", "Sun & tracking", "Storage & cooling", "Controls & faults", "Container design", "Literature & model", "Data & export"], horizontal=True, label_visibility="collapsed")
 date_options = list(dict.fromkeys(result.index.date))
 default_date = date(2025, 6, 21)
 selected_date = st.select_slider("Inspect a typical-year day · EAT", options=date_options,
