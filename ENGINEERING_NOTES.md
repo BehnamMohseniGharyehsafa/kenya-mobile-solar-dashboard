@@ -2,6 +2,41 @@
 
 Research and implementation date: 20 October 2026. Default site: Nairobi, as requested. All numerical equipment values below are conceptual assumptions unless explicitly identified as downloaded weather or manufacturer examples. The attached picture supplies visual inspiration only; text within the picture is not treated as an instruction or technical specification.
 
+## Operator station and cooling-fan visualisation (21 October 2026)
+
+The exterior HMI now has a sealed bezel, fasteners, permanent engraved labels,
+and four live seven-segment rows: PV kW, battery SOC, battery temperature and
+assumed fan demand. Its 160 fixed quads never move; only a 480-byte RGB array
+changes when the displayed digits change. A readable inspector uses targeted
+updates to existing HTML elements rather than replacing its controls each tick.
+Picking is enabled on clicks only, with dedicated IDs for the three physical
+buttons and generous non-overlapping targets on the surrounding panel face.
+
+Green starts deployment. Following the latched simulated red stop, the first
+green action resets the stop while keeping a restart interlock; another explicit
+Start is needed. Yellow holds/resumes mechanism motion. Red freezes mechanism
+and tracker movement, opens the model PV contactor, and blocks motion commands.
+Protective cooling and the battery/load balance continue. These are simulated
+operator functions, not a real machine safety circuit or a functional-safety
+certification. The separate-reset/restart behaviour follows the principle
+described by [Pilz](https://www.pilz.com/en-US/support/faq/standards/articles/180045)
+and [ABB](https://help.plc.abb.com/AB281_en/sf_emergencystop.html).
+
+The three-blade HVAC rotor is one small fixed mesh. A separate 100 ms callback
+computes only its rigid 4×4 transform, with no plant solve, geometry traversal,
+coordinate buffer, chart or LCD update. It is disabled when delivered cooling
+power is zero or the cooling mode is passive/faulted. The HMI fan indicator uses
+local CSS animation without server animation requests. Visual rotation is slowed
+to 12 rpm so the blades remain inspectable: displayed 900 rpm compressor-mode
+and 600 rpm free-cooling demands are assumed indications, not measurements or
+manufacturer curves. No extra fan energy is added to the existing aggregate HVAC
+load. JSON snapshots include these assumptions and operator/interlock states.
+
+The equipment camera uses a single invisible, non-pickable bounds proxy; other
+browser actors are excluded from camera fitting. The overview proxy retains the
+original compound/tree bounds, while equipment inspection fits the container
+front. Preset changes do not reconstruct the scene or erase manual orbit controls.
+
 ## 1. Deliverable and intended use
 
 The dashboard is a local Python application using Streamlit, Plotly, pvlib, pandas and NumPy. All application/model/chart source is Python; there is no separately authored HTML, CSS or JavaScript frontend. Streamlit and Plotly supply their normal browser runtime internally.

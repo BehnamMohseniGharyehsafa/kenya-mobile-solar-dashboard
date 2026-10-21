@@ -5,7 +5,7 @@ import pyvista as pv
 from PIL import Image
 
 from .mechanics import layout,module_geometry,smoothstep,hatch_angle,project_shadow,sun_vector
-from .scene import build_plotter,CAMERAS,PALETTE
+from .scene import build_plotter,CAMERAS,PALETTE,camera_pose
 from .landscape import BARK
 
 
@@ -37,6 +37,12 @@ class InteractiveScene:
         self.landscape_actors=[a for name,a in self.plotter.renderer.actors.items() if name.startswith("option-landscape-")]
         self.cover_actors=[a for name,a in self.plotter.renderer.actors.items() if name.startswith("option-cover-")]
         self.option_actors=self.landscape_actors+self.cover_actors
+        self.fan_actor=self.plotter.renderer.actors["equipment-rotor"]
+        self.display_actor=self.plotter.renderer.actors["equipment-display"]
+        self.display_mapper=self.display_actor.mapper
+        self.display_mesh=self.display_mapper.dataset.copy()
+        self.display_mapper.dataset=self.display_mesh
+        self.button_actors={key:self.plotter.renderer.actors[f"equipment-button-{key}"] for key in ("start","hold","stop")}
         self.last_signature=None
         self.transforms_sent=0
         self.module_template=_module_template(config)
@@ -146,7 +152,7 @@ class InteractiveScene:
         return True
 
     def set_camera(self,name):
-        position,focus=CAMERAS[name]
+        position,focus=camera_pose(self.config,name)
         self.plotter.camera_position=[position,focus,(0,0,1)]
 
     def set_options(self,landscape,cutaway):

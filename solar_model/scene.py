@@ -14,6 +14,7 @@ from scipy.spatial import ConvexHull
 
 from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector, hatch_angle
 from .landscape import terrain as _terrain, vegetation, FOLIAGE, BARK, STONE
+from .equipment import panel_housing,display_mesh,button_mesh,rotor_mesh,BUTTONS
 
 PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
@@ -118,12 +119,15 @@ def _equipment(g,c,cutaway):
     # Exterior HVAC cabinet: condenser fan and grille, clear service access.
     x=length/2+.32
     g.box((x,-.50,base+1.03),(.55,1.05,.90),PALETTE["shell"])
-    fan=pv.Cylinder(center=(x+.285,-.50,base+1.05),direction=(1,0,0),radius=.32,height=.035,resolution=36)
+    fan=pv.Cylinder(center=(x+.28,-.50,base+1.05),direction=(1,0,0),radius=.32,height=.008,resolution=36)
     g.add(fan,PALETTE["dark"])
     for z in np.arange(base+.79,base+1.36,.07):
-        g.tube((x+.31,-.78,z),(x+.31,-.22,z),.009,"#9aa9a4")
-    g.tube((x+.31,-.5,base+.75),(x+.31,-.5,base+1.35),.014,"#a7b0a6")
-    g.ellipsoid((x+.34,-.5,base+1.05),(.025,.07,.07),"#a3b6b6",12)
+        g.tube((x+.37,-.78,z),(x+.37,-.22,z),.006,"#9aa9a4")
+    g.tube((x+.37,-.5,base+.75),(x+.37,-.5,base+1.35),.008,"#a7b0a6")
+    g.ellipsoid((x+.37,-.5,base+1.05),(.025,.06,.06),"#a3b6b6",12)
+    angles=np.linspace(0,2*np.pi,49)
+    ring=np.c_[np.full(49,x+.37),-.5+.326*np.cos(angles),base+1.05+.326*np.sin(angles)]
+    g.add(pv.lines_from_points(ring).tube(radius=.012,n_sides=8),"#9aa9a4")
 
 
 @lru_cache(maxsize=12)
@@ -183,10 +187,7 @@ def static_geometry(c,landscape=True,cutaway=False,detail=True):
     _equipment(g,c,cutaway)
     _fence(g,d)
     # A sheltered operator cabinet, hardwired stop, telemetry and weather mast.
-    g.box((length/2+.08,.65,1.65),(.18,.65,.72),PALETTE["dark"])
-    g.box((length/2+.185,.65,1.77),(.025,.39,.19),"#408b8d")
-    for y,color in [(.47,"#74d8a2"),(.64,"#f3be58"),(.81,"#d9775c")]:
-        g.ellipsoid((length/2+.21,y,1.48),(.025,.038,.038),color,10)
+    g.add(panel_housing(c),"#64797c")
     mx,my=-length/2-.6,width/2+.45
     g.tube((mx,my,0),(mx,my,5.0),.035,PALETTE["steel"])
     g.tube((mx,my,4.85),(mx+.6,my,4.85),.022,PALETTE["steel"])
@@ -280,7 +281,16 @@ CAMERAS={
     "Mechanism inspection":((10,5,9),(0,0,2.5)),
     "Battery & cooling":((-9,-8,5),(0,0,1.4)),
     "Top plan":((0,-.1,43),(0,0,0)),
+    "Control panel & fan":((7.6,-.35,2.3),(3.28,.05,1.5)),
 }
+
+
+def camera_pose(config,name):
+    position,focus=CAMERAS[name]
+    if name=="Control panel & fan":
+        shift=np.array([config.dimensions[0]/2-3.029,0,0])
+        return np.asarray(position)+shift,np.asarray(focus)+shift
+    return position,focus
 
 
 def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
@@ -297,7 +307,7 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
             is_shadow=color in ("#3b4237","#454a3d")
             emissive=color in ("#ffe4a0","#ffdda2")
             field=mesh.active_scalars_name
-            colored=field in ("foliage_rgb","grass_rgb","stone_rgb","contact_rgba")
+            colored=field in ("foliage_rgb","grass_rgb","stone_rgb","contact_rgba","equipment_rgb")
             appearance={"scalars":field,"rgb":True} if colored else {"color":color}
             contact=field=="contact_rgba"
             grass=field=="grass_rgb"
@@ -319,6 +329,13 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
         add(landscape_geometry(c),"option-landscape",landscape)
     if dynamic:
         add(dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows,cloud_pct))
+    plotter.add_mesh(display_mesh(c).copy(),scalars="screen_rgb",rgb=True,show_scalar_bar=False,
+        lighting=False,name="equipment-display")
+    plotter.add_mesh(rotor_mesh(c),color="#c8d7d8",ambient=.45,diffuse=.6,specular=.5,
+        specular_power=32,name="equipment-rotor")
+    for key,(_,color) in BUTTONS.items():
+        plotter.add_mesh(button_mesh(c,key),color=color,ambient=.5,specular=.35,
+            specular_power=25,name=f"equipment-button-{key}")
     direction=sun_vector(max(elevation,12),sun_azimuth)
     sunlight=pv.Light(position=direction*100,focal_point=(0,0,0),light_type="scene light",
         intensity=.25 if night else max(.30,1.05-cloud_pct*.006),color="#8aa7d1" if night else "#fff1d3")
@@ -334,7 +351,7 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
             clouds.ellipsoid((x,22+(i%3)*6,16+(i%2)*3),(4.2,2.1,1.05),"#d4d9d4",16)
         for color,mesh in clouds.merged()[0].items():
             plotter.add_mesh(mesh,color=color,opacity=.45,ambient=.8)
-    pos,focus=CAMERAS[camera]
+    pos,focus=camera_pose(c,camera)
     if camera=="Deployment camera":
         mix=smoothstep((progress-.28)/.52)
         pos=(1-mix)*np.array(CAMERAS["Container detail"][0])+mix*np.array(CAMERAS["Site overview"][0])

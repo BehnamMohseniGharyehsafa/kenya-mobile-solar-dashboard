@@ -4,6 +4,24 @@ Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; D
 
 ## Automated verification
 
+The operator-panel/fan release adds checks for stop/reset/restart sequencing,
+PV isolation with protective cooling retained, frozen tracker pose during a stop,
+rigid fan transforms, a stopped fan at zero delivered cooling power, unknown LCD
+values, stable 160-cell display topology, duplicate-reading suppression, explicit
+3D button picks and the fan's actual HTTP callback. Full-suite and Linux container
+results are recorded in GitHub Actions.
+
+Fresh 120-frame desktop comparison (same Python environment, no active browser
+preview): the prior release measured 10.09 ms median / 14.00 ms p95 for Python
+animation plus geometry encoding; the HMI release measured 6.26 / 10.10 ms.
+The unchanged geometry update payload was about 203.54 KiB. This is a sampled
+CPU benchmark, not a browser FPS or internet-latency guarantee. A rotor-only
+update measured 0.014 ms and 191 bytes for the transform; its complete HTTP
+response is checked to remain below 700 bytes. The initial scene is 53 actors,
+93,103 triangles and 3.47 MiB of initial JSON, within the existing actor/triangle
+budget. Static landscape and the eight deployment/shadow coordinate buffers
+remain resident; rotor animation does not rebuild or resend them.
+
 Latest visual-quality run: **58 passed in 46.87 s**. This includes the original model checks, packing/shadows, live clocks/weather, stateful dispatch, VTK rendering, both roof-closed endpoints, reversible deployment/hold, direct-buffer callback transport, repeated landscape/cutaway toggles, static geometry budgets, highland/arid grass colours and 1440p export with renderer-size restoration. Provider data are mocked in automated tests; actual Nairobi data were fetched and inspected separately. The initial mesh encoder emits upstream VTK deprecation notices; the checks complete successfully.
 
 Original annual-dashboard baseline: **26 passed in 21.58 s**.

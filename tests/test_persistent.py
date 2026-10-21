@@ -148,7 +148,7 @@ def test_animation_http_response_updates_buffers_without_scene_children(monkeypa
                     'property':output.component_property} for i in range(8)])
             else:
                 outputs.append({'id':output.component_id,'property':output.component_property})
-        values=[1,1,0,0,0,'Live site clock','2026-10-21 12:00',600,6,['shadows','landscape'],'power']
+        values=[1,1,0,0,0,'Live site clock','2026-10-21 12:00',600,6,['shadows','landscape'],'power',0,0,0,None]
         inputs=[{**item,'value':value} for item,value in zip(callback['inputs'],values)]
         client=service.app.server.test_client()
         response=client.post('/_dash-update-component',json={'output':key,'outputs':outputs,

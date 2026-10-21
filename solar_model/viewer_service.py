@@ -7,14 +7,15 @@ import time
 import uuid
 from urllib.parse import parse_qs,urlparse
 
-from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html
+from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html,set_props
 from flask import request,has_request_context
 from werkzeug.serving import make_server,WSGIRequestHandler
 
 from .config import Config
 from .field_view import FieldView,interaction_settings
-from .scene import CAMERAS
+from .scene import CAMERAS,camera_pose
 from .presentation import index_template
+from .equipment import cooling_rpm
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -99,23 +100,50 @@ class ViewerService:
             Input("tick","n_intervals"),Input("deploy","n_clicks"),Input("retract","n_clicks"),
             Input("hold","n_clicks"),Input("refresh","n_clicks"),Input("clock","value"),Input("manual","value"),
             Input("speed","value"),Input("duration","value"),Input("options","value"),Input("detail-tab","value"),
+            Input("hmi-start","n_clicks"),Input("hmi-hold","n_clicks"),Input("hmi-stop","n_clicks"),Input("vtk","clickInfo"),
             State("session","data"),
             running=[(Output("tick","disabled"),True,False)])
-        def update(tick,deploy,retract,hold,refresh,clock,manual,speed,duration,options,detail,session):
+        def update(tick,deploy,retract,hold,refresh,clock,manual,speed,duration,options,detail,hmi_start,hmi_hold,hmi_stop,pick,session):
             view=self.sessions.get(session)
             if view is None:
                 return (no_update,)*17
-            scene,*values=view.step(ctx.triggered_id or "tick",clock,manual,speed,duration,options,detail)
+            event={"hmi-start":"panel-start","hmi-hold":"panel-hold","hmi-stop":"panel-stop"}.get(ctx.triggered_id,ctx.triggered_id or "tick")
+            if event=="vtk":
+                event=view.pick_action(pick)
+                if event=="inspect":
+                    set_props("equipment-inspector",{"open":True})
+            if hasattr(view,"step_with_instruments"):
+                result,changes=view.step_with_instruments(event,clock,manual,speed,duration,options,detail)
+            else:
+                result,changes=view.step(event,clock,manual,speed,duration,options,detail),{}
+            scene,*values=result
+            for identity,props in changes.items():
+                set_props(identity,props)
             return scene.points,scene.actors,scene.render,*values,view.interval_ms
+
+        @self.app.callback(Output("fan-rotor","actor"),Output("vtk","triggerRender",allow_duplicate=True),
+            Input("fan-tick","n_intervals"),State("session","data"),prevent_initial_call=True)
+        def animate_fan(tick,session):
+            view=self.sessions.get(session)
+            state=view.fan_frame() if view is not None else no_update
+            return (state,time.time()) if state is not no_update else (no_update,no_update)
+
+        @self.app.callback(Output("camera","value"),Output("equipment-inspector","open"),
+            Input("inspect-equipment","n_clicks"),prevent_initial_call=True)
+        def inspect_equipment(clicks):
+            return "Control panel & fan",True
 
         @self.app.callback(Output("clock","value"),Input("tour","n_clicks"),Input("live","n_clicks"),prevent_initial_call=True)
         def change_clock(tour,live):
             return "Accelerated solar day" if ctx.triggered_id=="tour" else "Live site clock"
 
-        @self.app.callback(Output("vtk","cameraPosition"),Output("vtk","triggerResetCamera"),
-            Input("camera","value"),Input("reset-view","n_clicks"),prevent_initial_call=True)
-        def camera(name,clicks):
-            return list(CAMERAS[name][0]),time.time()
+        @self.app.callback(Output("camera-bounds","actor"),Output("vtk","cameraPosition"),Output("vtk","triggerResetCamera"),
+            Input("camera","value"),Input("reset-view","n_clicks"),State("session","data"),prevent_initial_call=True)
+        def camera(name,clicks,session):
+            view=self.sessions.get(session)
+            if view is None:
+                return no_update,no_update,no_update
+            return view.camera_bounds_actor(name),list(camera_pose(view.config,name)[0]),time.time()
 
         @self.app.callback(Output("vtk","interactorSettings"),Input("tool","value"))
         def interaction(tool):
@@ -131,8 +159,17 @@ class ViewerService:
                 if ctx.triggered_id=="export-png":
                     sizes={"1080p":(1920,1080),"1440p":(2560,1440),"4K":(3840,2160)}
                     view.scene.set_camera(camera if camera in CAMERAS else "Site overview")
+                    matrix=getattr(view,"last_fan_matrix",None)
+                    if matrix is not None:
+                        import numpy as np
+                        view.scene.fan_actor.user_matrix=np.asarray(matrix).reshape(4,4,order="F")
                     return dcc.send_bytes(view.scene.png(sizes.get(size,sizes["1440p"])).getvalue(),"container_scene.png")
-                return dcc.send_string(json.dumps(view.controller.snapshot(),indent=2,default=str),"container_snapshot.json")
+                snapshot=view.controller.snapshot()
+                snapshot["instrumentation"]={"fan_demand_rpm_assumed":cooling_rpm(view.controller.model),
+                    "visual_rotor_rpm":12,"fan_basis":"Delivered HVAC power and cooling mode; not a measured or OEM fan curve",
+                    "physical_button_actions":{"green":"Start; reset only when stop is latched",
+                        "yellow":"Hold / resume mechanism","red":"Latched stop; isolate PV, retain automatic cooling"}}
+                return dcc.send_string(json.dumps(snapshot,indent=2,default=str),"container_snapshot.json")
 
     def close(self):
         if self.thread is not None and self.thread.is_alive():

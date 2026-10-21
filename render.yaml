@@ -13,3 +13,5 @@ services:
         value: "2"
       - key: PV_WEATHER_CACHE_DIR
         value: /tmp/solar-weather
+      - key: PV_UI_REVISION
+        value: hmi-fan-v1

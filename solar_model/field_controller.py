@@ -15,6 +15,8 @@ class FieldController:
         self.last_motion=monotonic()
         self.progress=self.target=0.
         self.held=False
+        self.emergency_stopped=False
+        self.restart_required=False
         self.duration=6.
         self.mode="Live site clock"
         self.speed=600
@@ -38,7 +40,7 @@ class FieldController:
 
     @property
     def moving(self):
-        return abs(self.target-self.progress)>1e-6 and not self.held
+        return abs(self.target-self.progress)>1e-6 and not self.held and not self.emergency_stopped
 
     @property
     def deployed(self):
@@ -48,17 +50,45 @@ class FieldController:
     def packing_ok(self):
         return layout(self.config)["packed_top_m"]<self.config.dimensions[2]+.20
 
+    @property
+    def pv_connected(self):
+        return self.deployed and not self.emergency_stopped and not self.restart_required
+
+    def emergency_stop(self):
+        self.emergency_stopped=self.restart_required=True
+        self.target=self.progress
+        self.held=True
+        self.last_motion=self.monotonic()
+        self.notice="Emergency stop latched. PV isolated; mechanism stopped. Protective cooling remains automatic."
+
+    def start_or_reset(self):
+        if self.emergency_stopped:
+            self.emergency_stopped=False
+            self.held=True
+            self.notice="Stop reset. No automatic restart: press START again when ready."
+            return False
+        accepted=self.command(1)
+        self.notice="Start accepted; deployment interlocks remain active." if accepted else "Start inhibited: check weather, wind and packing limits."
+        return accepted
+
     def command(self, target):
+        if self.emergency_stopped:
+            return False
         if target==1 and (self.wind_block or not self.packing_ok or self.weather is None):
             return False
         self.target=float(target)
         self.held=False
+        self.restart_required=False
         self.last_motion=self.monotonic()
+        self.notice="Deploying PV; extraction interlocks active." if target==1 else "Retracting PV; generation isolated during packing."
         return True
 
     def hold(self):
+        if self.emergency_stopped or self.restart_required:
+            return
         self.held=not self.held
         self.last_motion=self.monotonic()
+        self.notice="Mechanism motion held. Cooling and the energy model remain active." if self.held else "Mechanism motion resumed."
 
     def reset_energy(self):
         self.plant={}
@@ -90,7 +120,7 @@ class FieldController:
         self.last_motion=now
         if self.wind_block and self.target>self.progress:
             self.held=True
-        if not self.held:
+        if not self.held and not self.emergency_stopped:
             self.progress+=float(np.clip(self.target-self.progress,-dt/self.duration,dt/self.duration))
         self.progress=float(np.clip(self.progress,0,1))
 
@@ -115,7 +145,8 @@ class FieldController:
             self.reset_energy()
             elapsed=0
         self.model=advance_plant(self.config,self.stamp,self.weather,self.deployed,self.plant,
-            max(elapsed,0),moving=self.moving)
+            max(elapsed,0),moving=self.moving,
+            isolation_state="EMERGENCY STOP" if self.emergency_stopped else "RESTART REQUIRED" if self.restart_required else None)
         self.energy_last=self.stamp
         self.history.append({"time":self.stamp,"PV DC":self.model["pv_dc_kw"],
             "Users AC":self.model["user_served_kw"],"SOC (%)":self.model["soc"]*100})
@@ -123,6 +154,8 @@ class FieldController:
 
     def snapshot(self):
         return {"config":self.config.to_dict(),"simulated_time":str(self.stamp),"clock_mode":self.mode,
+            "operator":{"emergency_stop":self.emergency_stopped,"restart_required":self.restart_required,
+                "held":self.held,"pv_contactor_closed":self.pv_connected},
             "deployment_progress":self.progress,"mechanical_phase":phase(self.progress),
             "hatch_angle_deg":hatch_angle(self.progress),"weather":self.weather,
             "weather_provenance":self.meta,"plant":self.model,

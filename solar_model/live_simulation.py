@@ -18,7 +18,7 @@ def solar_position(c, when, weather=None):
         temperature=weather.get("temp_air",20),method="nrel_numpy").iloc[0]
 
 
-def instant_plant(c, when, weather, deployed, previous_pose=None, elapsed_seconds=1):
+def instant_plant(c, when, weather, deployed, previous_pose=None, elapsed_seconds=1, isolation_state=None):
     sun=solar_position(c,when,weather)
     daylight=sun.apparent_elevation>0
     old_pose=previous_pose or {}
@@ -52,24 +52,28 @@ def instant_plant(c, when, weather, deployed, previous_pose=None, elapsed_second
         rotation=tilt
     if not deployed:
         tilt,azimuth,rotation=0.0,90.0,0.0
+    if isolation_state:
+        state=isolation_state
+        if deployed and previous_pose:
+            tilt,azimuth,rotation=(previous_pose[key] for key in ("tilt","azimuth","rotation"))
     idx=pd.DatetimeIndex([pd.Timestamp(when)])
     data={k:[weather[k]] for k in ("temp_air","relative_humidity","pressure","wind_speed","ghi","dni","dhi")}
     data.update({"gust_proxy_ms":[weather["gust_ms"]],"fault_active":[False],"solar_time":idx})
     w=pd.DataFrame(data,index=idx)
     pose=pd.DataFrame({"surface_tilt_deg":[tilt],"surface_azimuth_deg":[azimuth],
-        "tracker_rotation_deg":[rotation],"tracker_kw":[float(c.tracker_standby_kw if deployed else 0.0)],
+        "tracker_rotation_deg":[rotation],"tracker_kw":[float(c.tracker_standby_kw if deployed and not isolation_state else 0.0)],
         "tracker_state":[state]},index=idx)
     pv=simulate_pv(w,c,pose_override=pose)
     potential=float(pv.pv_dc_kw.iloc[0])
-    if not deployed:
+    if not deployed or isolation_state:
         pv.loc[:,"pv_dc_kw"]=0.0
     return w,pv,{"tilt":float(tilt),"azimuth":float(azimuth),"rotation":float(rotation),
         "sun_elevation":float(sun.apparent_elevation),"sun_azimuth":float(sun.azimuth),
         "state":state,"potential_dc_kw":potential,"wind_stow":wind,"wind_latched":wind,"wind_recovery_s":recovery}
 
 
-def advance_plant(c,when,weather,deployed,session,elapsed_seconds,moving=False):
-    w,pv,pose=instant_plant(c,when,weather,deployed,session.get("pose"),elapsed_seconds)
+def advance_plant(c,when,weather,deployed,session,elapsed_seconds,moving=False,isolation_state=None):
+    w,pv,pose=instant_plant(c,when,weather,deployed,session.get("pose"),elapsed_seconds,isolation_state)
     if moving:
         pv.loc[:,"tracker_kw"]=c.tracker_kw
     # Exact elapsed time is split into <=60 s dispatch/thermal steps so an
