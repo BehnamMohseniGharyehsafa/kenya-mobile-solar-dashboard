@@ -219,7 +219,7 @@ st.title("Kenya · Mobile solar lab")
 st.write(f"**{c.site}** · {c.array_kwp:.1f} kWp deployable PV · {c.battery_kwh:.0f} kWh LFP · {c.container_ft} ft container · {c.tracking.lower()}")
 st.caption(f"{meta['source']} · {c.latitude:.4f}°, {c.longitude:.4f}° · {c.step_minutes}-minute model · EAT (UTC+3)")
 if meta["kind"] == "Synthetic":
-    st.warning("SYNTHETIC WEATHER — illustrative results only; these are not measured or climate-calibrated Kenyan yields.")
+    st.warning("SYNTHETIC WEATHER: illustrative results only; these are not measured or climate-calibrated Kenyan yields.")
 else:
     st.caption("Historical typical-year simulation. The 2025 calendar labels stitched months; it is not live production or a weather forecast.")
 if abs(c.irradiance_scale-1)>1e-6 or c.ambient_delta_c or c.forced_gust_ms or c.fault != "None":

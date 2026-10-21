@@ -9,7 +9,7 @@ dependency checks. See [security and availability limits](SECURITY.md); no publi
 service can be guaranteed unhackable or always available on a free plan.
 
 
-**[Open the public simulation — BehnamProject-PVforAfrica](https://behnamproject-pvforafrica.onrender.com/)**
+**[Open the public simulation: BehnamProject-PVforAfrica](https://behnamproject-pvforafrica.onrender.com/)**
 
 The free demonstration supports two active simulation tabs. After inactivity,
 the host may take about a minute to wake up. The owner can suspend/resume public

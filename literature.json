@@ -1,7 +1,7 @@
 [
   {
     "id": "R01",
-    "title": "European Commission JRC — PVGIS 5.3 API",
+    "title": "European Commission JRC: PVGIS 5.3 API",
     "type": "Primary data service / official documentation",
     "url": "https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/api-non-interactive-service_en",
     "finding": "The public API supplies geographically referenced irradiance and meteorological data. SARAH3 covers Africa; an explicit versioned endpoint improves reproducibility.",
@@ -9,7 +9,7 @@
   },
   {
     "id": "R02",
-    "title": "JRC — Typical meteorological year generator; Huld et al. (2018)",
+    "title": "JRC: Typical meteorological year generator; Huld et al. (2018)",
     "type": "Official methodology / peer-reviewed research",
     "url": "https://joint-research-centre.ec.europa.eu/photovoltaic-geographical-information-system-pvgis/using-pvgis-5/pvgis-5-tools/pvgis-typical-meteorological-year-tmy-generator_en",
     "finding": "A TMY assembles representative months from historical years. The PVGIS output includes an irradiance time offset that must be considered when calculating sun position. Huld et al., Atmosphere 9, 53, DOI 10.3390/atmos9020053, describes the assembly method.",
@@ -17,7 +17,7 @@
   },
   {
     "id": "R03",
-    "title": "Anderson & Mikofski (2020) — Slope-aware backtracking; pvlib singleaxis",
+    "title": "Anderson & Mikofski (2020): Slope-aware backtracking; pvlib singleaxis",
     "type": "Research method / reference implementation",
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.tracking.singleaxis.html",
     "finding": "Single-axis geometry depends on axis orientation, rotation limits and ground coverage ratio. Backtracking modifies the sun-facing orientation to mitigate mutual row shading. The cited NREL report is NREL/TP-5K00-76626, DOI 10.2172/1660126.",
@@ -25,7 +25,7 @@
   },
   {
     "id": "R04",
-    "title": "Faiman (2008) — Outdoor PV module temperature",
+    "title": "Faiman (2008): Outdoor PV module temperature",
     "type": "Peer-reviewed thermal model / reference implementation",
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.temperature.faiman.html",
     "finding": "Faiman relates module temperature rise to irradiance and empirical still-air and wind-dependent heat-loss coefficients. DOI 10.1002/pip.813. Its coefficients depend on mounting and wind measurement conditions.",
@@ -33,7 +33,7 @@
   },
   {
     "id": "R05",
-    "title": "Dobos (2014) — PVWatts DC performance model",
+    "title": "Dobos (2014): PVWatts DC performance model",
     "type": "National laboratory method / reference implementation",
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.pvsystem.pvwatts_dc.html",
     "finding": "PVWatts DC output scales rated power with effective irradiance and a linear cell-temperature correction. The temperature coefficient must match the module technology.",
@@ -41,7 +41,7 @@
   },
   {
     "id": "R06",
-    "title": "pvlib — Perez plane-of-array irradiance transposition",
+    "title": "pvlib: Perez plane-of-array irradiance transposition",
     "type": "Official scientific-library implementation",
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.irradiance.get_total_irradiance.html",
     "finding": "Tilted-plane irradiance is assembled from direct, sky-diffuse and ground-reflected components. The Perez option uses solar geometry, extraterrestrial irradiance and airmass to represent anisotropic sky diffuse radiation.",
@@ -49,7 +49,7 @@
   },
   {
     "id": "R07",
-    "title": "Schimpe et al. (2018) — Container battery electro-thermal efficiency",
+    "title": "Schimpe et al. (2018): Container battery electro-thermal efficiency",
     "type": "Peer-reviewed container-system research",
     "url": "https://www.sciencedirect.com/science/article/pii/S0306261917315696",
     "finding": "Applied Energy 210, 211–229, DOI 10.1016/j.apenergy.2017.10.129, couples battery racks, converters, thermal management and controls. The study demonstrates that conversion and auxiliary consumption materially affect system efficiency.",
@@ -57,7 +57,7 @@
   },
   {
     "id": "R08",
-    "title": "Saxon et al. (2024) — Li-ion battery thermal characterization",
+    "title": "Saxon et al. (2024): Li-ion battery thermal characterization",
     "type": "Peer-reviewed experimental research / NREL-hosted paper",
     "url": "https://www.nrel.gov/docs/fy24osti/89032.pdf",
     "finding": "Batteries 10, 136, DOI 10.3390/batteries10040136, examines measured cell/module/pack heat generation and temperature non-uniformity. Pack interconnects and cooling arrangements can change thermal behaviour beyond cell-only estimates.",
@@ -65,7 +65,7 @@
   },
   {
     "id": "R09",
-    "title": "IEA PVPS (2025) — Measuring and mitigating soiling",
+    "title": "IEA PVPS (2025): Measuring and mitigating soiling",
     "type": "International research-program technical fact sheet",
     "url": "https://iea-pvps.org/fact-sheets/fs-soiling-losses/",
     "finding": "Soiling is a material, site-dependent PV yield loss. Measurements and appropriate mitigation are needed to select a cleaning strategy; a global average is not a local Kenyan calibration.",
@@ -73,7 +73,7 @@
   },
   {
     "id": "R10",
-    "title": "SolarCont — Solarcontainer technical data",
+    "title": "SolarCont: Solarcontainer technical data",
     "type": "Manufacturer's published example, not independent validation",
     "url": "https://www.solarcontainer.one/english/home",
     "finding": "The manufacturer's current example lists 240 modules, up to 140 kWp and approximately 720 m² of deployed coverage. This illustrates how much larger a deployed array can be than its transport enclosure.",
@@ -81,7 +81,7 @@
   },
   {
     "id": "R11",
-    "title": "solarfold — Mobile container FAQ",
+    "title": "solarfold: Mobile container FAQ",
     "type": "Manufacturer's published packaging and foundation example",
     "url": "https://www.solarfold.eu/en/faq",
     "finding": "The FAQ describes a 20 ft high-cube transport container, electrically assisted extension, prewired equipment and ground-dependent support/foundation choices. Storage integration must be checked for the supplied version.",
@@ -89,7 +89,7 @@
   },
   {
     "id": "R12",
-    "title": "DNV (2024) — Wind and tracker-mounted module breakage",
+    "title": "DNV (2024): Wind and tracker-mounted module breakage",
     "type": "Original engineering investigation / PVSC conference research",
     "url": "https://www.dnv.com/publications/wind-speed-and-rear-glass-breakage-on-bifacial-pv-modules-mounted-on-trackers/",
     "finding": "The investigation links certain field breakages to wind and mounting conditions, including events below obvious extreme-wind cases. Module support and tracker geometry require their own engineering assessment.",
@@ -97,7 +97,7 @@
   },
   {
     "id": "R13",
-    "title": "Reda & Andreas — Solar Position Algorithm via pvlib",
+    "title": "Reda & Andreas: Solar Position Algorithm via pvlib",
     "type": "National laboratory solar-position algorithm / official implementation",
     "url": "https://pvlib-python.readthedocs.io/en/stable/reference/generated/pvlib.solarposition.spa_python.html",
     "finding": "Solar position can be calculated from time, coordinates and atmospheric conditions using the NREL Solar Position Algorithm.",
@@ -105,7 +105,7 @@
   },
   {
     "id": "R14",
-    "title": "Open-Meteo — Current weather and solar forecast API",
+    "title": "Open-Meteo: Current weather and solar forecast API",
     "type": "Primary weather-model data service / official documentation",
     "url": "https://open-meteo.com/en/docs",
     "finding": "The service publishes numerical current conditions and solar forecasts. Instantaneous solar variables are distinguished from interval averages.",
@@ -113,7 +113,7 @@
   },
   {
     "id": "R15",
-    "title": "PyVista — Python 3D geometry and off-screen rendering",
+    "title": "PyVista: Python 3D geometry and off-screen rendering",
     "type": "Official scientific visualization documentation",
     "url": "https://docs.pyvista.org/api/plotting/_autosummary/pyvista.plotter",
     "finding": "PyVista provides a Python interface to VTK geometry, lighting, cameras and off-screen rendering.",

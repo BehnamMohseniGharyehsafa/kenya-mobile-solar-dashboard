@@ -123,7 +123,7 @@ def rotor_matrix(centre,angle):
 
 def inspector():
     def readout(label,identity,unit):
-        return html.Div([html.Span(label),html.Strong("—",id=identity),html.Small(unit)],className="hmi-reading")
+        return html.Div([html.Span(label),html.Strong("N/A",id=identity),html.Small(unit)],className="hmi-reading")
     def button(key,label):
         return html.Button([html.Span(className="push-cap"),html.Span(label,id=f"hmi-{key}-label")],
             id=f"hmi-{key}",n_clicks=0,className=f"hmi-button hmi-{key}",title=label)

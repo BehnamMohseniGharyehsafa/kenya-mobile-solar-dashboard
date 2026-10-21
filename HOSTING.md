@@ -1,4 +1,4 @@
-# BehnamProject-PVforAfrica — free public simulation
+# BehnamProject-PVforAfrica: free public simulation
 
 **Public link: [behnamproject-pvforafrica.onrender.com](https://behnamproject-pvforafrica.onrender.com/)**
 

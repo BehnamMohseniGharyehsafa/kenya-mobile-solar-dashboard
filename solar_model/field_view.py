@@ -377,7 +377,7 @@ class FieldView:
         rpm=cooling_rpm(m)
         def value(key,decimals=1,multiplier=1):
             v=m.get(key)
-            return f"{v*multiplier:.{decimals}f}" if v is not None else "—"
+            return f"{v*multiplier:.{decimals}f}" if v is not None else "N/A"
         state=m["state"] if c.emergency_stopped or c.restart_required else "MOTION HELD" if c.held else "DEPLOYING" if c.moving and c.target==1 else "RETRACTING" if c.moving else m["state"]
         targets={"hmi-state":{"children":state},"hmi-pv":{"children":value("pv_dc_kw",2)},
             "hmi-soc":{"children":value("soc",1,100)},"hmi-temp":{"children":value("battery_temp_c")},
@@ -423,8 +423,8 @@ class FieldView:
             return html.Div([html.Span(label,className="metric-label"),
                 html.Strong([value,html.Span(unit,className="metric-unit")],className="metric-value"),
                 html.Span(caption,className="metric-caption")],className="metric-card")
-        pv=f"{m['pv_dc_kw']:.2f}" if m["pv_dc_kw"] is not None else "—"
-        load=f"{m['user_served_kw']:.2f}" if "user_served_kw" in m else "—"
+        pv=f"{m['pv_dc_kw']:.2f}" if m["pv_dc_kw"] is not None else "N/A"
+        load=f"{m['user_served_kw']:.2f}" if "user_served_kw" in m else "N/A"
         battery=f"Battery {m['battery_temp_c']:.1f}°C" if "battery_temp_c" in m else "LFP energy storage"
         metrics=html.Div([html.Div([
             card("PV generation",pv,"kW DC",f"{self.config.array_kwp:.1f} kWp installed capacity"),
