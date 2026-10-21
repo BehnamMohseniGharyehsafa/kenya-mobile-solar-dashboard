@@ -16,7 +16,6 @@ from dash._utils import to_json
 
 from solar_model.config import Config
 from solar_model.field_view import FieldView
-from solar_model.equipment import fan_centre
 from tests.weather_fixture import forecast_fixture
 
 
@@ -61,8 +60,7 @@ def benchmark(frames=60, profile=None):
             "actors":len(view.actors),"triangles":sum(a.mapper.dataset.triangulate().n_cells for a in view.actors),
             "initial_layout_mib":initial_mib,
             "fan_per_frame_server_requests":0,
-            "fan_command_bytes":len(to_json({"centre":list(fan_centre(view.config)),
-                "visual_rpm":12}).encode()),
+            "fan_command_bytes":len(to_json(view.fan_command(True)).encode()),
             "scope":"Animation update plus geometry JSON encoding; excludes plant solves, browser drawing and network."}
     finally:
         view.close()

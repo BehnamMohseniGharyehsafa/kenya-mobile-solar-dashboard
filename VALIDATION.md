@@ -11,18 +11,24 @@ pause/resume, high-refresh capping and stall recovery. Dash integration checks
 verify the helper is served locally, the fan callback is clientside, commands
 stay small, and PNG export receives the browser's actual rotor pose. Earlier
 10 Hz HTTP payload timings below describe the superseded release, not browser
-smoothness. Final local regression: **71 passed in 38.13 s**, including six
+smoothness. Final local regression: **71 passed in 38.13 s**, including seven
 JavaScript runtime timing/lifecycle scenarios through the Node test runner.
 
 A 120-frame desktop geometry/encoding sample measured 4.30 ms median and 5.40 ms
 p95, with the existing 53 actors / 93,103 triangles / 203.54 KiB update unchanged.
 Fan animation adds zero per-frame server requests; a state-change command is
-44 bytes before callback framing. These are CPU/transport checks, not an FPS
+64 bytes before callback framing. These are CPU/transport checks, not an FPS
 guarantee. A browser sample during deployment plus a concurrent full Python
 test run averaged 46 local pose updates/s; device/GPU load affects the cadence.
 Actual browser checks retained the container close-up during rotation, reached
 100% deployment with a closed roof, and isolated PV while cooling continued
-under the simulated emergency stop. Server counters recorded only plant ticks,
+under the simulated emergency stop. A cold first visit exposed lazy renderer initialization racing the frame loop.
+The helper now waits for the actual canvas, complete geometry count and mounted
+datasets before starting; a dedicated runtime case tests partial readiness. An actual browser test on a
+fresh local origin delayed the lazy VTK renderer by six seconds and verified
+that the full scene and equipment close-up remained intact while the fan ran.
+The affected equipment/callback suite then passed 23 checks.
+Server counters recorded only plant ticks,
 camera changes and explicit operator actions, with no fan interval requests.
 
 

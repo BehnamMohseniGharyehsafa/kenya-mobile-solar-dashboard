@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {advance, createAnimator} = require('../solar_model/assets/fan_animation.js');
+const {advance, createAnimator, sceneMounted} = require('../solar_model/assets/fan_animation.js');
 
 function rig() {
     let next = 0, hidden = false, reduced = false, mounted = true;
@@ -22,6 +22,21 @@ function rig() {
         unmount() { mounted = false; }
     };
 }
+
+test('cold-load gate waits for canvas, all geometry and mounted datasets', () => {
+    const parts = [{firstElementChild: {}}, {firstElementChild: null}];
+    const canvas = {width: 0, height: 480};
+    const view = {querySelector(selector) {
+        return selector === 'canvas' ? canvas : {parentElement: {children: parts}};
+    }};
+    assert.equal(sceneMounted(null, 2), false);
+    assert.equal(sceneMounted(view, 2), false);
+    canvas.width = 1200;
+    assert.equal(sceneMounted(view, 2), false);
+    parts[1].firstElementChild = {};
+    assert.equal(sceneMounted(view, 3), false);
+    assert.equal(sceneMounted(view, 2), true);
+});
 
 test('native rigid rotation preserves fan centre and leaves geometry untouched', () => {
     const r = rig(); r.command(); r.frame(0); r.frame(20);

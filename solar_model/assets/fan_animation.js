@@ -15,6 +15,14 @@
         if (target === 0 && state.speed < 0.002) state.speed = 0;
     }
 
+    function sceneMounted(view, count) {
+        if (!view) return false;
+        const canvas = view.querySelector("canvas"), bounds = view.querySelector("#camera-bounds");
+        const parts = bounds && bounds.parentElement.children;
+        return Boolean(canvas && canvas.width > 10 && canvas.height > 10 && parts &&
+            parts.length === count && Array.from(parts).every(part => part.firstElementChild));
+    }
+
     function createAnimator(env) {
         const state = {angle: 0, speed: 0};
         let command = null, frame = null, previous = null, painted = null;
@@ -61,7 +69,7 @@
         };
     }
 
-    if (typeof module !== "undefined" && module.exports) module.exports = {advance, createAnimator};
+    if (typeof module !== "undefined" && module.exports) module.exports = {advance, createAnimator, sceneMounted};
     if (!root || !root.document) return;
     let animator = null, observer = null, element = null, indicator = null;
     const reduced = root.matchMedia("(prefers-reduced-motion: reduce)");
@@ -69,9 +77,10 @@
     function configure(command, session, attempt = 0) {
         if (retry !== null) { root.clearTimeout(retry); retry = null; }
         const view = root.document.getElementById("vtk");
-        if (!view) {
-            // dash-vtk loads its renderer asynchronously on the first visit.
-            if (attempt < 100) retry = root.setTimeout(() => configure(command, session, attempt + 1), 100);
+        if (!sceneMounted(view, command && command.geometry_count)) {
+            // The View shell may exist before its lazy geometry components.
+            // Never start continuous updates until every dataset has mounted.
+            if (attempt < 400) retry = root.setTimeout(() => configure(command, session, attempt + 1), 100);
             return root.dash_clientside.no_update;
         }
         if (view !== element) {
@@ -102,9 +111,9 @@
             }
         }
         latest = {...command, session};
-        // Let Dash finish asynchronously mounting the static VTK datasets and
-        // controls before starting continuous local updates.
-        if (!ready) retry = root.setTimeout(() => { ready = true; retry = null; animator.configure(latest); }, 1500);
+        // Geometry is now mounted; let native dataset/camera initialization
+        // finish before continuous updates. A cold network cannot skip the gate.
+        if (!ready) retry = root.setTimeout(() => { ready = true; retry = null; animator.configure(latest); }, 300);
         else animator.configure(latest);
         return root.dash_clientside.no_update;
     }

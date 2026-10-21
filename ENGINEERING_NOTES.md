@@ -35,8 +35,8 @@ interlocks, cooling demand and weather calculations remain Python.
 The 3D rotor and readable HMI indicator share the same phase, with an elapsed-time
 first-order visual ramp (0.35 s acceleration / 0.55 s coast-down). Rendering is
 capped at 60 updates/s, pauses for hidden/offscreen scenes, respects reduced
-motion, and discards long-stall catch-up. After initial lazy component mounting,
-one animation loop owns the rotor; repeated cooling updates do not reset phase.
+motion, and discards long-stall catch-up. A DOM readiness gate waits for the canvas, all representation nodes and their
+dataset children to finish lazy mounting before one animation loop owns the rotor; repeated cooling updates do not reset phase.
 The initial display mesh is seeded with current digits before serialization.
 PNG export receives the browser's current pose only when requested.
 

@@ -189,7 +189,7 @@ class FieldView:
         coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
-            dcc.Store(id="fan-command",data={"centre":list(fan_centre(c)),"visual_rpm":0}),
+            dcc.Store(id="fan-command",data=self.fan_command(False)),
             dcc.Store(id="fan-runtime"),
             html.Div([html.Div([html.P("FIELD SYSTEM 01 / RENEWABLE ENERGY",className="eyebrow"),
                 html.H2(getattr(self,"public_title",None) or ["Mobile solar",html.Span(" / field lab")])]),
@@ -379,7 +379,7 @@ class FieldView:
             "hmi-stop":{"disabled":c.emergency_stopped},
             "hmi-cooling":{"children":"Cooling · "+m.get("cooling_state","WAITING FOR WEATHER")},
             "hmi-rpm":{"children":f"{rpm} rpm assumed demand · {m.get('cooling_kw',0):.3f} kW"},
-            "fan-command":{"data":{"centre":list(fan_centre(self.config)),"visual_rpm":12 if rpm else 0}}}
+            "fan-command":{"data":self.fan_command(bool(rpm))}}
         self.scene.button_actors["stop"].position=(-.016 if c.emergency_stopped else 0,0,0)
         targets["world-stop"]={"actor":actor_state(self.scene.button_actors["stop"])}
         colors=display_colors(display_lines(m,rpm))
@@ -395,6 +395,10 @@ class FieldView:
         changes=self.instrument_changes
         self.instrument_changes={}
         return changes
+
+    def fan_command(self,running):
+        return {"centre":list(fan_centre(self.config)),"visual_rpm":12 if running else 0,
+            "geometry_count":len(self.actors)+1}  # includes the camera bounds proxy
 
     def telemetry(self, detail):
         c,m=self.controller,self.controller.model
