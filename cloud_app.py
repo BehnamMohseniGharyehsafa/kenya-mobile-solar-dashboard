@@ -14,7 +14,7 @@ from solar_model.viewer_service import ViewerService
 def create_app():
     service=ViewerService(start_server=False,
         default_design=(Config(),"Africa/Nairobi"),title="BehnamProject-PVforAfrica",
-        max_sessions=int(os.environ.get("PV_MAX_SESSIONS","1")),idle_seconds=180)
+        max_sessions=int(os.environ.get("PV_MAX_SESSIONS","2")),idle_seconds=180)
     app=service.app.server
     # Keep the controller alive for the process lifetime. A single threaded
     # worker keeps each browser's in-memory state on the same Python process.

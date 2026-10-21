@@ -74,8 +74,8 @@ outside the published application.
 - Render's free service sleeps after 15 minutes without traffic, and wakes on
   the next visit, normally taking about a minute. This automatic sleep is
   separate from the owner's **Suspend** control.
-- The free plan has 512 MB RAM and 0.1 CPU. Initially this deployment admits one
-  active browser simulation at a time. A second tab sees a capacity message,
+- The free plan has 512 MB RAM and 0.1 CPU. Initially this deployment admits two
+  active browser simulations at a time. A third tab sees a capacity message,
   rather than evicting the first viewer. Abandoned sessions expire after three
   minutes without simulation requests and are released when another viewer opens.
 - `PV_MAX_SESSIONS` is adjustable, but raising it needs a memory/concurrency test.
@@ -90,7 +90,7 @@ outside the published application.
 The GitHub Actions `cloud-container` job builds the actual Docker image, starts
 it with a 512 MB memory cap, fetches the real 3D layout and calls the model through
 Dash's HTTP API. It prints container memory and OOM diagnostics. This checks a
-single-session container, not Render's CPU throttling or internet performance.
+two-session container, not Render's CPU throttling or internet performance.
 
 For Docker installed locally:
 

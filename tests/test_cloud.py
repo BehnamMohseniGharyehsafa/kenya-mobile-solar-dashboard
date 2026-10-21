@@ -11,6 +11,7 @@ from tools.render_service import manage, SERVICE_NAME
 
 @pytest.fixture
 def cloud(monkeypatch):
+    monkeypatch.setenv("PV_MAX_SESSIONS","1")
     class View:
         def __init__(self,*settings):
             self.settings=settings

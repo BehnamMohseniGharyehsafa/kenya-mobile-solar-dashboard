@@ -10,4 +10,4 @@ services:
     autoDeployTrigger: 'off'
     envVars:
       - key: PV_MAX_SESSIONS
-        value: "1"
+        value: "2"

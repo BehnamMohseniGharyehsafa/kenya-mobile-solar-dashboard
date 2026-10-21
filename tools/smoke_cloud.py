@@ -60,6 +60,14 @@ def smoke(url):
         "outputs":outputs,"inputs":inputs,"state":state,"changedPropIds":["tick.n_intervals"]},timeout=120)
     response.raise_for_status()
     assert "status" in response.json()["response"]
+    second=client.get(url+"/_dash-layout",timeout=120)
+    second.raise_for_status()
+    second_nodes=list(components(second.json()))
+    second_session=next(n["props"]["data"] for n in second_nodes if n["props"].get("id")=="session")
+    assert second_session!=props["session"]["data"], "Visitors shared a simulation session."
+    third=client.get(url+"/_dash-layout",timeout=30)
+    third.raise_for_status()
+    assert "currently full" in third.text, "The cloud session cap was not enforced."
     print(f"Cloud smoke passed: real 3D layout and plant callback; {time.monotonic()-started:.2f} s initial load.")
 
 
