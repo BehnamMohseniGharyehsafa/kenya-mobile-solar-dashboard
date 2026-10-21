@@ -104,7 +104,7 @@ class FieldView:
                 clearable=False,style={"width":"240px","color":"#142832"}),button("Reset view","reset-view"),
                 button("Run solar-day tour","tour"),button("Use live site clock","live")],style=ROW),
             html.Div([html.Strong("Drag tool:"),dcc.RadioItems(id="tool",options=["Orbit","Pan","Zoom"],value="Orbit",inline=True,
-                labelStyle={"marginRight":"16px"})],style=ROW),
+                labelStyle={"marginRight":"16px","color":"#e9f0f1"})],style=ROW),
             html.P("Drag in the scene with the selected tool. Wheel / right-drag also zooms; Shift + left-drag pans. Camera movement is preserved during updates."),
             html.Strong("TRANSPORT LOCKED",id="status"),html.Small(id="roof-state",style={"marginLeft":"15px"}),
             html.Progress(id="progress",value=0,max=100,style={"width":"100%","height":"8px"}),
