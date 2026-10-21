@@ -4,15 +4,26 @@ Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; D
 
 ## Developer attribution and public resource safeguards
 
-The complete security run passed **85 tests in 21.53 s**. A subsequent
-manual-date regression also passed in the 26-check equipment/security subset;
-the final 14-check security request suite and real local cloud smoke passed. Added HTTP checks cover
+The final Linux CI run passed **86 tests in 18.24 s**, with upstream VTK
+deprecation warnings. The official PyPA dependency audit reported no known
+vulnerabilities in the resolved cloud requirements. The actual Docker image
+passed its two-browser/plant/Full HD PNG smoke test under a 512 MiB memory cap,
+recording **395.9 MiB** and **OOMKilled=false**. These results are recorded in
+[GitHub Actions run 39619486988](https://github.com/BehnamMohseniGharyehsafa/kenya-mobile-solar-dashboard/actions/runs/39619486988).
+The final 14-check security request suite and real local cloud smoke also passed. Added HTTP checks cover
 signed/Secure/HttpOnly/SameSite cookies, host and origin rejection, malformed and
 oversized JSON, unknown callbacks and response targets, browser-owned simulation
 IDs, refresh reuse, bounded rate-limiter storage, concurrent-work rejection while
 health remains available, and rejecting forged public 4K requests. Actual browser
 checks confirmed the three-line developer attribution, normal deployment,
 restoration of the deployed model after refresh and no CSP console errors.
+
+The public Render site was then verified to report `credits-security-v1`:
+its Secure cookie, CSP, frame denial and HSTS were present, an unowned control
+request returned 403, and health remained 200. A fresh browser displayed the
+exact developer banner and live Nairobi weather, completed PV deployment with
+the roof closed, and reported no browser console errors. This is a release
+verification, not a penetration test or an uptime guarantee.
 
 An exact-version PyPI advisory lookup covered 110 installed/cloud package entries.
 Only the installed Pillow 12.3.0 was flagged (eight advisories, fixed in 13.0.0).

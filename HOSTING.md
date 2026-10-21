@@ -104,11 +104,12 @@ outside the published application.
   the next visit, normally taking about a minute. This automatic sleep is
   separate from the owner's **Suspend** control.
 - The free plan has 512 MB RAM and 0.1 CPU. Initially this deployment admits two
-  active browser simulations at a time. A third tab sees a capacity message,
+  active browser simulations at a time. A third independent browser sees a capacity message,
   rather than evicting the first viewer. Abandoned sessions expire after three
   minutes without simulation requests and are released when another viewer opens.
 - `PV_MAX_SESSIONS` is adjustable, but raising it needs a memory/concurrency test.
-  Each visitor retains independent state. Browser WebGL performs the drawing;
+  Each visitor browser retains independent state; tabs in one browser share its
+  simulation. Browser WebGL performs the drawing;
   Python still computes the model and sends geometry. Network latency and shared
   CPU affect animation speed; a desktop benchmark is not a hosted FPS guarantee.
 - Weather is downloaded from Open-Meteo. This is model weather, not measurements
