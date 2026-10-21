@@ -2,6 +2,12 @@
 
 A Python-only interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. The main workspace shows a detailed 3D container compound with one-command deployment/retraction, current model weather, a clock-driven sun and analytical shadows. Historical JRC PVGIS weather remains bundled for the annual engineering studies.
 
+**[Open the public simulation — BehnamProject-PVforAfrica](https://behnamproject-pvforafrica.onrender.com/)**
+
+The free demonstration supports two active simulation tabs. After inactivity,
+the host may take about a minute to wake up. The owner can suspend/resume public
+access in Render; see [hosting and access controls](HOSTING.md).
+
 ![Enhanced container workspace: interactive landscape and live model telemetry](assets/screenshots/dashboard-enhanced.png)
 
 Example desktop workspace; values change with site time and weather. [Open the 1440p concept-site render with a fixed test sun](assets/screenshots/site-deployed.png).

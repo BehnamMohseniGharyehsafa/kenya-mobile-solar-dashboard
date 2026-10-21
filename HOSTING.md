@@ -1,5 +1,12 @@
 # BehnamProject-PVforAfrica — free public simulation
 
+**Public link: [behnamproject-pvforafrica.onrender.com](https://behnamproject-pvforafrica.onrender.com/)**
+
+Verified on 21 October 2026: the public health check responds, the 3D workspace
+loads live Nairobi model weather, the PV array deploys to 100% with the roof
+closed, and the browser camera orbits the scene. Public availability follows the
+owner's Suspend/Resume setting and Render's free-tier limits.
+
 The public service runs the existing interactive Dash/VTK workspace directly,
 with the default Nairobi design and full deployment, tracking, weather, camera,
 thermal, technical and export controls. The local Streamlit dashboard still
@@ -31,10 +38,9 @@ The shortcut is Render's setup page, not the public simulation link.
 
 Source: [Render's deployment shortcut documentation](https://render.com/docs/deploy-to-render).
 
-The requested address is `https://behnamproject-pvforafrica.onrender.com`.
-**This is a requested name, not evidence of a live deployment.** Render assigns
-the actual URL and may append a suffix if the name is unavailable. Use the
-verified address on the service's dashboard.
+This project's verified address is `https://behnamproject-pvforafrica.onrender.com`.
+If deploying another instance, Render may append a suffix when a name is already
+in use. Use the actual URL on that instance's dashboard.
 
 The page title preserves **BehnamProject-PVforAfrica**. Web addresses use lowercase.
 Automatic deployments are off: future commits do not silently replace a demo.
