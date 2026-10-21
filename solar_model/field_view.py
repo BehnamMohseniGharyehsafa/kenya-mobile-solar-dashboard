@@ -143,7 +143,7 @@ class FieldView:
         return html.Div([
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
             html.Div([html.Div([html.P("FIELD SYSTEM 01 / RENEWABLE ENERGY",className="eyebrow"),
-                html.H2(["Mobile solar",html.Span(" / field lab")])]),
+                html.H2(getattr(self,"public_title",None) or ["Mobile solar",html.Span(" / field lab")])]),
                 html.Div([html.Strong(f"{c.site.upper()} · KENYA"),html.Br(),coordinates],className="site-chip")],
                 className="viewer-heading"),
             html.Div([button("Deploy · open roof & install PV","deploy"),button("Retract · pack & close container","retract"),

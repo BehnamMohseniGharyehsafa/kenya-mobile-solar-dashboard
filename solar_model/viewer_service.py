@@ -1,4 +1,4 @@
-"""Automatically managed, loopback-only Dash VTK service for local Streamlit."""
+"""Persistent Dash workspace, embedded locally or served directly in the cloud."""
 import atexit
 import hashlib
 import json
@@ -23,20 +23,28 @@ class QuietHandler(WSGIRequestHandler):
 
 
 class ViewerService:
-    def __init__(self):
+    def __init__(self, *, start_server=True, default_design=None,
+                 title="Kenya · interactive container", max_sessions=12, idle_seconds=1800):
+        self.default_design=default_design
+        self.title=title
+        self.max_sessions=max_sessions
+        self.idle_seconds=idle_seconds
         self.routes={}
         self.keys={}
         self.sessions={}
         self.lock=threading.Lock()
-        self.app=Dash(__name__,title="Kenya · interactive container",update_title=None,
+        self.app=Dash(__name__,title=title,update_title=None,
             suppress_callback_exceptions=True)
         self.app.index_string=index_template()
         self.app.layout=self._layout
         self._callbacks()
-        self.server=make_server("127.0.0.1",0,self.app.server,threaded=True,request_handler=QuietHandler)
-        self.port=self.server.server_port
-        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True,name="field-viewer")
-        self.thread.start()
+        self.server=self.thread=None
+        self.port=None
+        if start_server:
+            self.server=make_server("127.0.0.1",0,self.app.server,threaded=True,request_handler=QuietHandler)
+            self.port=self.server.server_port
+            self.thread=threading.Thread(target=self.server.serve_forever,daemon=True,name="field-viewer")
+            self.thread.start()
         atexit.register(self.close)
 
     def register(self,config,operator_zone):
@@ -49,24 +57,32 @@ class ViewerService:
         return f"http://127.0.0.1:{self.port}/?design={token}"
 
     def _layout(self):
-        if not has_request_context():
+        # Dash also evaluates callable layouts during index/asset validation.
+        # Only the browser's layout request should allocate a VTK scene.
+        if not has_request_context() or request.path!="/_dash-layout":
             return html.Div()
         token=request.args.get("design")
         if not token:
             token=parse_qs(urlparse(request.referrer or "").query).get("design",[None])[0]
         with self.lock:
-            settings=self.routes.get(token)
+            settings=self.routes.get(token) if token else self.default_design
             if settings is None:
                 return html.P("Open the Container simulator from the main dashboard.")
             # Bound retained sessions and release abandoned VTK resources.
-            expired=[k for k,v in self.sessions.items() if time.monotonic()-v.last_used>1800]
+            expired=[k for k,v in self.sessions.items() if time.monotonic()-v.last_used>self.idle_seconds]
             for key in expired:
                 self.sessions.pop(key).close()
-            while len(self.sessions)>=12:
+            if self.default_design and len(self.sessions)>=self.max_sessions:
+                return html.Div([html.H2(self.title),html.P(
+                    "The free demonstration server is currently full. Close unused simulation tabs "
+                    "and try refreshing in a few minutes.")],className="viewer-shell")
+            while len(self.sessions)>=self.max_sessions:
                 key=min(self.sessions,key=lambda k:self.sessions[k].last_used)
                 self.sessions.pop(key).close()
             session=uuid.uuid4().hex
             view=FieldView(*settings)
+            if self.default_design:
+                view.public_title=self.title
             self.sessions[session]=view
         return view.layout(session)
 
@@ -119,10 +135,10 @@ class ViewerService:
                 return dcc.send_string(json.dumps(view.controller.snapshot(),indent=2,default=str),"container_snapshot.json")
 
     def close(self):
-        if self.thread.is_alive():
+        if self.thread is not None and self.thread.is_alive():
             self.server.shutdown()
             self.server.server_close()
             self.thread.join(timeout=5)
-            for view in self.sessions.values():
-                view.close()
-            self.sessions.clear()
+        for view in self.sessions.values():
+            view.close()
+        self.sessions.clear()

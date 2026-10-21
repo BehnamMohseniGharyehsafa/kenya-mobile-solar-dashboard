@@ -1,0 +1,13 @@
+.git
+.venv
+.work-tmp
+.pytest_cache
+__pycache__
+**/__pycache__
+outputs
+.weather-cache
+.env
+.env.*
+*.log
+tests
+assets/screenshots

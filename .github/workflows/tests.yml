@@ -36,3 +36,21 @@ jobs:
         env:
           PYVISTA_OFF_SCREEN: 'true'
           MPLBACKEND: Agg
+
+  cloud-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the public simulation image
+        run: docker build -t solar-cloud .
+      - name: Start within the free service memory allowance
+        run: docker run -d --name solar-cloud --memory=512m -p 10000:10000 solar-cloud
+      - name: Exercise the real public scene and callback
+        run: docker exec solar-cloud python -m tools.smoke_cloud http://127.0.0.1:10000
+      - name: Record memory and diagnostics
+        if: always()
+        run: |
+          docker stats --no-stream solar-cloud
+          docker inspect --format '{{json .State}}' solar-cloud
+          docker logs --tail 70 solar-cloud

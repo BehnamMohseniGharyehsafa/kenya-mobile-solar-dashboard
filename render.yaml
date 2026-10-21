@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: behnamproject-pvforafrica
+    runtime: docker
+    plan: free
+    branch: master
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: PV_MAX_SESSIONS
+        value: "1"

@@ -57,6 +57,10 @@ flowchart LR
 
 ## Run on Windows
 
+For a public browser link, see [free Render hosting and owner on/off controls](HOSTING.md).
+The cloud entry point serves the existing 3D workspace directly through one public
+port; it does not expose the local Streamlit viewer's loopback address.
+
 For an existing project environment:
 
 ```powershell
