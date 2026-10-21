@@ -26,6 +26,8 @@ Example desktop workspace; values change with site time and weather. [Open the 1
 - Click the coloured buttons on the container or their matching full-size HMI controls: **green Start/Reset**, **yellow Hold/Resume**, **red latched simulated E-stop**. Resetting the stop does not restart the plant; press Start separately. The stop freezes mechanism/tracking motion and isolates PV generation while automatic protective cooling remains available.
 - Watch the three-blade cooling rotor turn when the model delivers HVAC power. Its separate animation sends one tiny rigid transform at 10 Hz; it does not solve the plant or stream the landscape. The HMI fan indicator animates locally with CSS. Both are slowed for inspection; the displayed 600/900 rpm demands are assumptions rather than measurements or OEM fan curves.
 
+[View the verified live HMI and cooling-fan close-up](assets/screenshots/control-panel-hmi.png).
+
 The mechanism and landscape are engineering illustrations, not a certified machine or a surveyed site. Current weather is model output; the plant state is simulated. Packed and moving panels contribute zero accepted PV generation.
 
 ![One-command deployment and reverse packing: fixed test-sun concept preview](assets/screenshots/deployment-sequence.gif)

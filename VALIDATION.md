@@ -11,6 +11,15 @@ values, stable 160-cell display topology, duplicate-reading suppression, explici
 3D button picks and the fan's actual HTTP callback. Full-suite and Linux container
 results are recorded in GitHub Actions.
 
+The HMI/fan release passed **70 checks** in Linux CI. Its Docker test loaded two
+independent scenes and a real plant callback within a 512 MB memory cap, recording
+267.7 MiB with no OOM termination. The `/healthz` endpoint on the public service
+reported `hmi-fan-v1`. Actual browser checks on Render verified live LCD readings,
+the physical green start and red stop buttons, PV isolation with cooling retained,
+reset without automatic restart, and an explicit successful restart. The amber
+hold/resume sequence was also exercised in the local browser. These are functional
+and resource checks, not a cloud frame-rate or concurrency guarantee.
+
 Fresh 120-frame desktop comparison (same Python environment, no active browser
 preview): the prior release measured 10.09 ms median / 14.00 ms p95 for Python
 animation plus geometry encoding; the HMI release measured 6.26 / 10.10 ms.
