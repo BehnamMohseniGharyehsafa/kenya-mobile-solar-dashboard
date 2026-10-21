@@ -7,7 +7,7 @@ import time
 import uuid
 from urllib.parse import parse_qs,urlparse
 
-from dash import Dash,Input,Output,State,ctx,no_update,dcc,html
+from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html
 from flask import request,has_request_context
 from werkzeug.serving import make_server,WSGIRequestHandler
 
@@ -70,11 +70,14 @@ class ViewerService:
 
     def _callbacks(self):
         @self.app.callback(
-            Output("vtk","children"),Output("status","children"),Output("progress","value"),
+            Output({"type":"moving-mesh","slot":ALL},"points"),
+            Output({"type":"moving-actor","slot":ALL},"actor"),Output("vtk","triggerRender"),
+            Output("status","children"),Output("progress","value"),
             Output("clocks","children"),Output("metrics","children"),Output("weather","children"),
             Output("technical","children"),Output("roof-state","children"),Output("plot","figure"),
             Output("deploy","disabled"),Output("retract","disabled"),Output("hold","disabled"),Output("hold","children"),
             Output("vtk","background"),
+            Output("tick","interval"),
             Input("tick","n_intervals"),Input("deploy","n_clicks"),Input("retract","n_clicks"),
             Input("hold","n_clicks"),Input("refresh","n_clicks"),Input("clock","value"),Input("manual","value"),
             Input("speed","value"),Input("duration","value"),Input("options","value"),Input("detail-tab","value"),
@@ -83,8 +86,9 @@ class ViewerService:
         def update(tick,deploy,retract,hold,refresh,clock,manual,speed,duration,options,detail,session):
             view=self.sessions.get(session)
             if view is None:
-                return (no_update,)*14
-            return view.step(ctx.triggered_id or "tick",clock,manual,speed,duration,options,detail)
+                return (no_update,)*17
+            scene,*values=view.step(ctx.triggered_id or "tick",clock,manual,speed,duration,options,detail)
+            return scene.points,scene.actors,scene.render,*values,view.interval_ms
 
         @self.app.callback(Output("clock","value"),Input("tour","n_clicks"),Input("live","n_clicks"),prevent_initial_call=True)
         def change_clock(tour,live):

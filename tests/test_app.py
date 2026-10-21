@@ -57,14 +57,52 @@ def test_persistent_field_view_controls_and_camera():
         assert '100% deployed' in result[1]
         assert 'Roof 0.0' in result[7]
         assert window is view.scene.plotter.ren_win
-        patch=to_json(result[0])
+        patch=to_json(result[0].to_dict())
+        from dash import no_update
+        assert result[0].children is no_update  # Never walk/redraw static actors on a motion tick.
+        assert len(result[0].points)==8
         assert 'cameraPosition' not in patch and 'triggerResetCamera' not in patch
         assert 'userMatrix' in patch
         assert 'polys' not in patch and 'rgb' not in patch
+        # A detail-tab click must not wait for an unnecessary plant solve.
+        from unittest.mock import patch as mock_patch
+        import time
+        view.last_physics=time.monotonic()
+        with mock_patch.object(view.controller,'step_plant',side_effect=AssertionError('Unnecessary solve on tab click')):
+            detail=view.step('detail-tab','Live site clock',None,600,6,['shadows','landscape'],'mechanism')
+        assert 'Roof hatches' in detail[6]
+        assert detail[0].children is no_update
+        assert all(p is no_update for p in detail[0].points)
+        assert detail[0].render is no_update
+        assert view.interval_ms==1000
         view.step('retract','Live site clock',None,600,6,['shadows','landscape'],'power')
+        assert view.interval_ms==50
         view.controller.last_motion-=7
         view.step('tick','Live site clock',None,600,6,['shadows','landscape'],'power')
         assert view.controller.progress==0
         assert view.controller.snapshot()['hatch_angle_deg']==0
+        # While only the hatches move, panel coordinates remain browser-side.
+        view.controller.weather={'gust_ms':0}
+        view.step('deploy','Live site clock',None,600,6,['shadows','landscape'],'power')
+        view.controller.last_motion-=.3
+        opening=view.step('tick','Live site clock',None,600,6,['shadows','landscape'],'power')
+        module_slot=view.stream_slots[view.dynamic_indices[0]]
+        assert opening[0].points[module_slot] is no_update
+        assert any(p is not no_update for p in opening[0].points)
+        # Repeated cutaway/landscape toggles reuse the renderer and resident
+        # meshes. Only actor visibility may cross the wire for these controls.
+        view.controller.held=True
+        view.scene.update(view.controller.progress,view.controller.model['tilt'],
+            view.controller.model['azimuth'],view.controller.model['sun_elevation'],
+            view.controller.model['sun_azimuth'],view.controller.weather['cloud_pct'])
+        for options in (['shadows','cutaway'],['shadows','landscape'],['shadows','cutaway']):
+            view.last_physics=time.monotonic()
+            result=view.step('options','Live site clock',None,600,6,options,'power')
+            assert view.scene.plotter.ren_win is window
+            assert result[0].children is no_update
+            assert all(p is no_update for p in result[0].points)
+            assert any(a is not no_update for a in result[0].actors)
+            assert all(a.visibility==('landscape' in options) for a in view.scene.landscape_actors)
+            assert all(a.visibility==('cutaway' not in options) for a in view.scene.cover_actors)
     finally:
         view.close()

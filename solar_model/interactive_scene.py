@@ -4,7 +4,7 @@ import numpy as np
 import pyvista as pv
 from PIL import Image
 
-from .mechanics import layout,module_poses,smoothstep,hatch_angle,project_shadow,sun_vector
+from .mechanics import layout,module_geometry,smoothstep,hatch_angle,project_shadow,sun_vector
 from .scene import build_plotter,CAMERAS,PALETTE
 
 
@@ -32,7 +32,10 @@ class InteractiveScene:
     def __init__(self,config,landscape=True,cutaway=False,camera="Site overview"):
         self.config=config
         self.plotter=build_plotter(config,0,0,90,40,150,camera=camera,landscape=landscape,
-            cutaway=cutaway,dynamic=False,annotations=False,size=(1200,660))
+            cutaway=cutaway,dynamic=False,annotations=False,size=(1200,660),option_layers=True)
+        self.landscape_actors=[a for name,a in self.plotter.renderer.actors.items() if name.startswith("option-landscape-")]
+        self.cover_actors=[a for name,a in self.plotter.renderer.actors.items() if name.startswith("option-cover-")]
+        self.option_actors=self.landscape_actors+self.cover_actors
         self.last_signature=None
         self.transforms_sent=0
         self.module_template=_module_template(config)
@@ -41,6 +44,10 @@ class InteractiveScene:
         self.rail_template=pv.Cylinder(direction=(0,1,0),radius=.055,height=1,resolution=8)
         length,width,height=config.dimensions
         self.roof_template=pv.Cube(center=(0,width/4,0),x_length=length,y_length=width/2,z_length=.065)
+        # PyVista point access wraps the VTK array. Read each immutable template
+        # once, rather than doing thousands of wrapper lookups per second.
+        self.template_points={name:np.array(getattr(self,f"{name}_template").points,copy=True)
+            for name in ("module","post","foot","roof","rail")}
         self.module_mesh=self._batch(self.module_template,config.modules)
         self.post_mesh=self._batch(self.post_template,config.modules)
         self.foot_mesh=self._batch(self.foot_template,config.modules)
@@ -76,6 +83,12 @@ class InteractiveScene:
         # One dataset/actor for the entire group, with fixed connectivity.
         return pv.merge([template.copy() for _ in range(count)],merge_points=False)
 
+    @staticmethod
+    def _set_points(mesh,points):
+        points=np.asarray(points,np.float32).reshape(-1,3)
+        if not np.array_equal(mesh.points,points):
+            mesh.points=points
+
     def update(self,progress,tilt,azimuth,elevation,sun_azimuth,cloud=0,shadows=True):
         signature=(round(progress,5),round(tilt,2),round(azimuth,2),round(elevation,2),round(sun_azimuth,2),round(cloud/5),shadows)
         if signature==self.last_signature:
@@ -83,20 +96,19 @@ class InteractiveScene:
         old=self.last_signature
         self.last_signature=signature
         c=self.config
-        poses=module_poses(c,progress,tilt,azimuth)
+        centers,basis,vertices,_,_=module_geometry(c,progress,tilt,azimuth)
+        self.module_centers,self.module_bases=centers,basis
         if old is None or signature[:3]!=old[:3]:
-            modules,posts,feet=[],[],[]
-            for pose in poses:
-                across=(pose.vertices[1]-pose.vertices[0])/layout(c)["module_width_m"]
-                along=(pose.vertices[3]-pose.vertices[0])/layout(c)["module_length_m"]
-                basis=np.column_stack([across,along,np.cross(across,along)])
-                modules.append(self.module_template.points@basis.T+pose.center)
-                x,y,z=pose.center
-                posts.append(self.post_template.points*np.array([1,1,max(z-.31,.01)])+[x,y,(z+.23)/2])
-                feet.append(self.foot_template.points+[x,y,.07])
-            self.module_mesh.points=np.concatenate(modules).astype(np.float32)
-            self.post_mesh.points=np.concatenate(posts).astype(np.float32)
-            self.foot_mesh.points=np.concatenate(feet).astype(np.float32)
+            template=self.template_points
+            self._set_points(self.module_mesh,np.einsum("kj,nij->nki",template["module"],basis)+centers[:,None,:])
+            scales=np.ones_like(centers)
+            scales[:,2]=np.maximum(centers[:,2]-.31,.01)
+            post_centers=centers.copy()
+            post_centers[:,2]=(centers[:,2]+.23)/2
+            self._set_points(self.post_mesh,template["post"][None,:,:]*scales[:,None,:]+post_centers[:,None,:])
+            foot_centers=centers.copy()
+            foot_centers[:,2]=.07
+            self._set_points(self.foot_mesh,template["foot"][None,:,:]+foot_centers[:,None,:])
             self.posts[0].visibility=progress>.32
             self.feet[0].visibility=progress>.74
             length,width,height=c.dimensions
@@ -104,22 +116,22 @@ class InteractiveScene:
             roofs=[]
             for sign in (-1,1):
                 basis=np.column_stack([(1,0,0),(0,-sign*np.cos(angle),np.sin(angle)),(0,-sign*np.sin(angle),-np.cos(angle))])
-                roofs.append(self.roof_template.points@basis.T+[0,sign*width/2,height+.26])
-            self.roof_mesh.points=np.concatenate(roofs).astype(np.float32)
+                roofs.append(template["roof"]@basis.T+[0,sign*width/2,height+.26])
+            self._set_points(self.roof_mesh,np.concatenate(roofs))
             ext=smoothstep((progress-.32)/.38)
             distance=max((layout(c)["fence_half_y"]-width/2-3)*ext,.001)
             rails=[]
             for sign in (-1,1):
                 for x in (-length*.30,length*.30):
-                    rails.append(self.rail_template.points*np.array([1,distance,1])+[x,sign*(width/2+distance/2),.33])
-            self.rail_mesh.points=np.concatenate(rails).astype(np.float32)
+                    rails.append(template["rail"]*np.array([1,distance,1])+[x,sign*(width/2+distance/2),.33])
+            self._set_points(self.rail_mesh,np.concatenate(rails))
         visible=shadows and elevation>.5
         self.shadow_actor.visibility=self.box_shadow_actor.visibility=visible
         if visible:
-            self.shadow_mesh.points=project_shadow(np.concatenate([p.vertices for p in poses]),elevation,sun_azimuth,.025).astype(np.float32)
+            self._set_points(self.shadow_mesh,project_shadow(vertices.reshape(-1,3),elevation,sun_azimuth,.025))
             length,width,height=c.dimensions
             points=np.array([[x,y,z] for x in (-length/2,length/2) for y in (-width/2,width/2) for z in (.27,height+.26)])
-            self.box_shadow.points=project_shadow(points,elevation,sun_azimuth,.015).astype(np.float32)
+            self._set_points(self.box_shadow,project_shadow(points,elevation,sun_azimuth,.015))
         self.sun.visibility=elevation>0
         self.sun.position=sun_vector(elevation,sun_azimuth)*15+np.array([0,0,1.5])
         self.light.position=sun_vector(max(elevation,12),sun_azimuth)*100
@@ -130,6 +142,12 @@ class InteractiveScene:
     def set_camera(self,name):
         position,focus=CAMERAS[name]
         self.plotter.camera_position=[position,focus,(0,0,1)]
+
+    def set_options(self,landscape,cutaway):
+        for actor in self.landscape_actors:
+            actor.visibility=landscape
+        for actor in self.cover_actors:
+            actor.visibility=not cutaway
 
     def png(self):
         output=BytesIO()

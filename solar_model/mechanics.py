@@ -69,38 +69,39 @@ def layout(c):
         "array_ground_m2": (2*half_x-5)*(2*half_y-5)}
 
 
-def module_poses(c, progress, tilt_deg=0, azimuth_deg=90):
+def module_geometry(c, progress, tilt_deg=0, azimuth_deg=90):
+    """Vectorised version of the same cassette trajectories, in module order."""
     p = float(np.clip(progress, 0, 1))
     d = layout(c)
     cols, ml, mw = d["columns"], d["module_length_m"], d["module_width_m"]
     lift = smoothstep((p-.12)/.20)
     extend = smoothstep((p-.32)/.38)
     lower = smoothstep((p-.70)/.14)
-    output = []
-    for i in range(c.modules):
-        bank = 1 if (i//cols) % 2 == 0 else -1
-        rank = i//(2*cols)
-        col = i % cols
-        target = np.array([(col-(cols-1)/2)*d["pitch_m"],
-            bank*(c.dimensions[1]/2+1.1+ml/2+rank*(ml+.12)), 1.65])
-        packed = np.array([((i%3)-1)*(mw+.025), 0, 1.45+(i//3)*.075])
-        raised = packed.copy()
-        raised[2] = c.dimensions[2]+.95+(i//3)*.025
-        center = packed*(1-lift)+raised*lift
-        center[:2] = center[:2]*(1-extend)+target[:2]*extend
-        center[2] = center[2]*(1-lower)+target[2]*lower
-        # Folded cassettes fan around their long axes during extension.
-        fold_angle = (1 if col%2 else -1)*65*np.sin(np.pi*extend)
-        if p >= .70:
-            tilt = tilt_deg*lower
-            azimuth = azimuth_deg
-        else:
-            tilt, azimuth = fold_angle, 90
-        across, along, normal = panel_basis(tilt, azimuth)
-        vertices = np.array([center+sx*mw/2*across+sy*ml/2*along
-            for sx,sy in [(-1,-1),(1,-1),(1,1),(-1,1)]])
-        output.append(ModulePose(i+1, tuple(center), vertices, tuple(target), bank))
-    return output
+    i=np.arange(c.modules)
+    bank=np.where((i//cols)%2==0,1,-1)
+    rank,col=i//(2*cols),i%cols
+    target=np.column_stack([(col-(cols-1)/2)*d["pitch_m"],
+        bank*(c.dimensions[1]/2+1.1+ml/2+rank*(ml+.12)),np.full(c.modules,1.65)])
+    center=np.column_stack([((i%3)-1)*(mw+.025),np.zeros(c.modules),1.45+(i//3)*.075])
+    center[:,2]=center[:,2]*(1-lift)+(c.dimensions[2]+.95+(i//3)*.025)*lift
+    center[:,:2]=center[:,:2]*(1-extend)+target[:,:2]*extend
+    center[:,2]=center[:,2]*(1-lower)+target[:,2]*lower
+    tilt=np.full(c.modules,tilt_deg*lower) if p>=.70 else np.where(col%2,1,-1)*65*np.sin(np.pi*extend)
+    t=np.radians(tilt)
+    a=np.radians(azimuth_deg if p>=.70 else 90)
+    normal=np.column_stack([np.sin(t)*np.sin(a),np.sin(t)*np.cos(a),np.cos(t)])
+    across=np.column_stack([np.cos(t)*np.sin(a),np.cos(t)*np.cos(a),-np.sin(t)])
+    along=np.cross(normal,across)
+    basis=np.stack([across,along,normal],axis=2)
+    corners=np.array([[-mw/2,-ml/2,0],[mw/2,-ml/2,0],[mw/2,ml/2,0],[-mw/2,ml/2,0]])
+    vertices=np.einsum("kj,nij->nki",corners,basis)+center[:,None,:]
+    return center,basis,vertices,target,bank
+
+
+def module_poses(c, progress, tilt_deg=0, azimuth_deg=90):
+    centers,_,vertices,targets,banks=module_geometry(c,progress,tilt_deg,azimuth_deg)
+    return [ModulePose(i+1,tuple(centers[i]),vertices[i],tuple(targets[i]),int(banks[i]))
+        for i in range(c.modules)]
 
 
 def sun_vector(elevation_deg, azimuth_deg):

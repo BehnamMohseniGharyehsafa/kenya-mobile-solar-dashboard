@@ -1,16 +1,17 @@
 """Persistent Dash VTK workspace, authored entirely in Python.
 
-Only actor properties and the small projected-shadow meshes change during a
-tick. Static geometry and the vtk.js View remain mounted in the browser.
+Coordinates are written directly to PolyData buffers. Updating View.children
+would make every representation redraw the whole scene, including the terrain.
 """
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, asdict
 import json
 import threading
 import time
 
 import numpy as np
 import pandas as pd
-from dash import html, dcc, Patch, no_update
+from dash import html, dcc, no_update
 import dash_vtk
 from dash_vtk.utils import to_mesh_state
 from dash_vtk.utils.vtk import b64_encode_numpy
@@ -27,6 +28,17 @@ WEATHER_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix="site-weather")
 BUTTON={"background":"#223641","color":"#edf2ed","border":"1px solid #4b6269",
     "borderRadius":"6px","padding":"10px 15px","cursor":"pointer","fontSize":"14px"}
 ROW={"display":"flex","flexWrap":"wrap","gap":"8px","alignItems":"center","marginBottom":"10px"}
+
+
+@dataclass
+class SceneUpdate:
+    children: object
+    points: list
+    actors: list
+    render: object
+
+    def to_dict(self):
+        return asdict(self)
 
 
 def interaction_settings(tool="Orbit"):
@@ -56,6 +68,7 @@ class FieldView:
         self.future=None
         self.closed=False
         self.render_options=(True,False)
+        self.sent_values={}
         self._index_actors()
         if feed is not None:
             self.controller.set_feed(*feed)
@@ -69,7 +82,13 @@ class FieldView:
         self.dynamic_indices=[i for i,a in enumerate(self.actors) if any(a is b for b in dynamic)]
         self.shadow_indices=[i for i,a in enumerate(self.actors)
             if a is self.scene.shadow_actor or a is self.scene.box_shadow_actor]
-        self.actor_states={i:actor_state(self.actors[i]) for i in self.dynamic_indices+self.shadow_indices}
+        self.stream_indices=sorted(self.dynamic_indices+self.shadow_indices)
+        self.stream_slots={index:slot for slot,index in enumerate(self.stream_indices)}
+        self.option_indices=[i for i,a in enumerate(self.actors) if any(a is b for b in self.scene.option_actors)]
+        # ALL outputs follow document order, which is also renderer actor order.
+        self.actor_indices=sorted(self.stream_indices+self.option_indices)
+        self.actor_slots={index:slot for slot,index in enumerate(self.actor_indices)}
+        self.actor_states={i:actor_state(self.actors[i]) for i in self.actor_indices}
         self.mesh_mtimes={i:self.actors[i].mapper.dataset.GetMTime() for i in self.dynamic_indices+self.shadow_indices}
 
     def fetch_weather(self, force=False):
@@ -86,18 +105,30 @@ class FieldView:
             if field:
                 mapper.update(colorByArrayName=field,scalarMode=4 if field in mesh.cell_data else 3)
             prop=actor.GetProperty()
-            result.append(dash_vtk.GeometryRepresentation(id=f"part-{i}",actor=actor_state(actor),mapper=mapper,
+            slot=self.stream_slots.get(i)
+            actor_slot=self.actor_slots.get(i)
+            identity=f"part-{i}" if actor_slot is None else {"type":"moving-actor","slot":actor_slot}
+            mesh_id=f"mesh-{i}" if slot is None else {"type":"moving-mesh","slot":slot}
+            state=to_mesh_state(mesh,field)
+            fields=[]
+            if state.get("field"):
+                data=dict(state["field"])
+                location=data.pop("location")
+                # dataRange is encoder metadata rather than a DataArray property.
+                data.pop("dataRange",None)
+                fields=[getattr(dash_vtk,location)([dash_vtk.DataArray(**data)])]
+            result.append(dash_vtk.GeometryRepresentation(id=identity,actor=actor_state(actor),mapper=mapper,
                 property={"color":list(prop.GetColor()),"opacity":prop.GetOpacity(),
                     "ambient":prop.GetAmbient(),"diffuse":prop.GetDiffuse(),
                     "specular":prop.GetSpecular(),"lineWidth":prop.GetLineWidth(),
                     "lighting":bool(prop.GetLighting())},
-                children=[dash_vtk.Mesh(id=f"mesh-{i}",state=to_mesh_state(mesh,field))]))
+                children=[dash_vtk.PolyData(id=mesh_id,**state["mesh"],children=fields)]))
         return result
 
     def layout(self, session):
         button=lambda name,identity:html.Button(name,id=identity,n_clicks=0,style=BUTTON)
         return html.Div([
-            dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=80,n_intervals=0),
+            dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
             html.Div([button("Deploy · open roof & install PV","deploy"),button("Retract · pack & close container","retract"),
                 button("Hold motion","hold"),button("Refresh weather","refresh")],style=ROW),
             html.Div([html.Label("Camera preset"),dcc.Dropdown(id="camera",options=list(CAMERAS),value="Site overview",
@@ -117,7 +148,7 @@ class FieldView:
             html.Details([html.Summary("Clock, animation and view settings"),
                 html.Div([html.Label("Simulation clock"),dcc.Dropdown(id="clock",options=["Live site clock","Accelerated solar day","Manual sun study"],
                     value="Live site clock",clearable=False,style={"width":"245px","color":"#142832"}),
-                    dcc.Input(id="manual",type="text",value=pd.Timestamp.now(tz=self.config.timezone).strftime("%Y-%m-%d 12:00"),
+                    dcc.Input(id="manual",type="text",debounce=True,value=pd.Timestamp.now(tz=self.config.timezone).strftime("%Y-%m-%d 12:00"),
                         placeholder="Study time · YYYY-MM-DD HH:MM EAT",style={"padding":"10px"}),
                     html.Label("Tour speed"),dcc.Dropdown(id="speed",options=[60,120,300,600,1200],value=600,clearable=False,
                         style={"width":"110px","color":"#142832"})],style=ROW),
@@ -141,21 +172,32 @@ class FieldView:
         with self.lock:
             return self._step(event,mode,manual,speed,duration,options,detail)
 
+    @property
+    def interval_ms(self):
+        if self.controller.moving:
+            return 50
+        return 100 if self.controller.mode=="Accelerated solar day" else 1000
+
+    def _if_changed(self,key,value):
+        if value is no_update or self.sent_values.get(key)==value:
+            return no_update
+        self.sent_values[key]=value
+        return value
+
     def _step(self,event,mode,manual,speed,duration,options,detail):
         started=time.perf_counter()
         now=pd.Timestamp.now(tz="UTC")
         mono=time.monotonic()
         self.last_used=mono
         c=self.controller
-        force=event!="tick"
+        # A tab, duration or view-tool change does not advance the plant or
+        # rebuild its chart. Commands still update the PV/drive interlocks now.
+        force=event in ("deploy","retract","hold","clock","manual","refresh")
         render_options=("landscape" in options,"cutaway" in options)
-        rebuilt=render_options!=self.render_options
-        if rebuilt:
-            old=self.scene
-            self.scene=InteractiveScene(self.config,landscape=render_options[0],cutaway=render_options[1])
+        options_changed=render_options!=self.render_options
+        if options_changed:
+            self.scene.set_options(*render_options)
             self.render_options=render_options
-            self._index_actors()
-            old.close()
         if self.future is not None and self.future.done():
             try:
                 c.set_feed(*self.future.result())
@@ -194,34 +236,39 @@ class FieldView:
         m=c.model
         changed=self.scene.update(c.progress,m["tilt"],m["azimuth"],m["sun_elevation"],m["sun_azimuth"],
             c.weather["cloud_pct"] if c.weather else 0,"shadows" in options)
-        patch=no_update
-        if rebuilt:
-            patch=self.representations()
-        elif changed:
-            patch=Patch()
-            for i in self.dynamic_indices+self.shadow_indices:
+        points=[no_update]*len(self.stream_indices)
+        actors=[no_update]*len(self.actor_indices)
+        scene_children=no_update
+        render=no_update
+        if changed or options_changed:
+            for slot,i in enumerate(self.actor_indices):
                 actor=self.actors[i]
                 state=actor_state(actor)
                 if state!=self.actor_states[i]:
-                    patch[i]["props"]["actor"]=state
+                    actors[slot]=state
                     self.actor_states[i]=state
+            for slot,i in enumerate(self.stream_indices):
+                actor=self.actors[i]
                 mesh=actor.mapper.dataset
                 if mesh.GetMTime()!=self.mesh_mtimes[i]:
-                    # Topology and colours are fixed throughout motion. Send
-                    # only changed coordinates, retaining the browser buffers.
-                    patch[i]["props"]["children"][0]["props"]["state"]["mesh"]["points"]=b64_encode_numpy(mesh.points)
+                    points[slot]=b64_encode_numpy(mesh.points)
                     self.mesh_mtimes[i]=mesh.GetMTime()
-        telemetry=self.telemetry(detail) if physics else (no_update,)*5
+            # PolyData coordinate writes do not recursively update the parent
+            # representations. Request one render after all buffer writes.
+            render=time.time()
+        scene_update=SceneUpdate(scene_children,points,actors,render)
+        telemetry=self.telemetry(detail) if physics or event=="detail-tab" else (no_update,)*5
         figure=no_update
-        if force or mono-self.last_chart>5:
+        if event in ("detail-tab","clock","manual") or mono-self.last_chart>5:
             figure=self.figure(detail)
             self.last_chart=mono
         self.frame_ms=(time.perf_counter()-started)*1000
         status=f"{'DEPLOYING' if c.target>c.progress else 'RETRACTING' if c.target<c.progress else 'READY'} · {phase(c.progress)} · {c.progress*100:.0f}% deployed"+(" · MOTION HELD" if c.held else "")
-        return (patch,status,c.progress*100,*telemetry,figure,
+        values=(status,c.progress*100,*telemetry,figure,
             (c.target==1 and not c.held) or c.wind_block or c.weather is None or not c.packing_ok,
             c.target==0 and not c.held,not c.moving and not c.held,"Resume motion" if c.held else "Hold motion",
             ([.08,.12,.17] if m["sun_elevation"]<=0 else [.57,.67,.72]) if physics else no_update)
+        return (scene_update,*(v if i==7 else self._if_changed(f"output-{i}",v) for i,v in enumerate(values)))
 
     def telemetry(self, detail):
         c,m=self.controller,self.controller.model
@@ -270,7 +317,7 @@ Mechanics remain conceptual; actuator forces and complete structural/collision v
         elif detail=="weather":
             technical="Provider provenance and exact sampled model conditions are included in the JSON export. Landscape is illustrative; shadows are planar projections, not a surveyed shading study."
         elif detail=="export":
-            technical=f"**Persistent vtk.js viewport** · motion targets 12.5 updates/s; plant/clock 1 Hz; charts 0.2 Hz.\n\nLatest Python update: **{self.frame_ms:.1f} ms**, excluding network/browser rendering. Static meshes are sent at initial load; subsequent messages patch actor transformations and small shadow meshes. No frame screenshots or full-page reruns occur. Weather retrieval runs in a background worker."
+            technical=f"**Persistent vtk.js viewport** · motion timer 50 ms; idle timer 1 s; plant/clock 1 Hz; charts 0.2 Hz.\n\nLatest Python update: **{self.frame_ms:.1f} ms**, excluding network/browser rendering. Coordinates update individual buffers directly; static scene children stay mounted. One explicit render follows a buffer update. Unchanged labels and sky colour are not resent. Weather retrieval runs in a background worker."
         # Fifth channel is reserved for accessible deployment/roof confirmation.
         return clocks,metrics,weather,technical,f"Roof {hatch_angle(c.progress):.1f}° · {phase(c.progress)}"
 

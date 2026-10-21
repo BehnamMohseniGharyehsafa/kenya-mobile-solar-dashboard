@@ -104,7 +104,7 @@ git pull
 
 On Linux servers, install OpenGL/EGL libraries and Xvfb for off-screen VTK exports; the GitHub Actions workflow shows the tested setup. A desktop graphics driver is normally sufficient on Windows. All application/model/scene source remains Python; Dash VTK supplies its packaged browser rendering runtime.
 
-The Container simulator automatically starts a Python/Dash VTK viewer on an available **loopback-only** port in the same process. No second command or manually chosen port is needed. Its persistent vtk.js viewport keeps terrain and equipment loaded, streams batched moving geometry during deployment and performs camera interaction in the browser. Presentation duration defaults to six seconds, adjustable from two to twenty. Clock/plant telemetry updates once per second; charts update every five seconds. A timer guard prevents overlapping animation requests from accumulating. Weather downloads run in a background worker. The initial 3D load still takes several seconds, depending on the computer/browser, but normal clock ticks do not rebuild or grey the Streamlit page. Scene PNG export uses the preset server camera; it does not capture a manually rotated browser camera. This launch configuration is for local use; hosting it for remote clients requires a deliberate reverse-proxy deployment.
+The Container simulator automatically starts a Python/Dash VTK viewer on an available **loopback-only** port in the same process. No second command or manually chosen port is needed. Its persistent vtk.js viewport keeps terrain and equipment loaded. Animation updates individual coordinate buffers directly, avoiding repeated redraws of every unchanged representation. NumPy calculates all panel transforms together and immutable template arrays are cached. Landscape and cutaway controls toggle resident actors instead of rebuilding/reloading the scene. Camera interaction remains in the browser. Presentation duration defaults to six seconds, adjustable from two to twenty. The motion timer is 50 ms, the accelerated-tour timer is 100 ms and the idle timer is one second; actual frame rate also depends on rendering and transport. Clock/plant telemetry updates once per second; charts update every five seconds. Unchanged labels/background are not resent, and detail-tab clicks do not force a plant solve. A timer guard prevents overlapping animation requests from accumulating. Weather downloads run in a background worker. The initial 3D load still takes several seconds, depending on the computer/browser. Scene PNG export uses the preset server camera; it does not capture a manually rotated browser camera. This launch configuration is for local use; hosting it for remote clients requires a deliberate reverse-proxy deployment.
 
 ```powershell
 # Test the physical consistency and dashboard.
@@ -112,6 +112,9 @@ The Container simulator automatically starts a Python/Dash VTK viewer on an avai
 
 # Recompute default results and scenario comparisons.
 .\.venv\Scripts\python.exe tools/validate_model.py
+
+# Benchmark animation calculations and transport encoding (not browser FPS).
+.\.venv\Scripts\python.exe -m tools.benchmark_viewer --output outputs/viewer-performance.json
 
 # Refresh weather (requires an internet connection).
 .\.venv\Scripts\python.exe tools/download_weather.py --site all

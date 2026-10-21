@@ -164,9 +164,49 @@ def _equipment(g,c,cutaway):
 
 
 @lru_cache(maxsize=12)
+def cover_geometry(c,detail=True):
+    """The near wall/nameplate hidden by cutaway, as a separate cached layer."""
+    g=Geometry()
+    length,width,height=c.dimensions
+    y=-width/2
+    g.box((0,y,.26+height/2),(length,.075,height),PALETTE["shell"])
+    if detail:
+        for x in np.arange(-length/2+.12,length/2,.115):
+            g.box((x,y-.045,.26+height/2),(.037,.035,height-.16),PALETTE["rib"])
+    g.box((-length*.18,y-.075,1.40),(length*.47,.025,.62),PALETTE["dark"])
+    text=pv.Text3D("SOLAR / KENYA",depth=.005,height=.18)
+    text.rotate_x(90,inplace=True)
+    text.translate((-length*.18,y-.096,1.36),inplace=True)
+    g.add(text,"#e6dfc8")
+    return g.merged()
+
+
+@lru_cache(maxsize=12)
+def landscape_geometry(c):
+    """Vegetation/rocks are independent of the permanent installation geometry."""
+    g=Geometry()
+    d=layout(c)
+    arid=c.altitude_m < 900 and c.site not in ("Mombasa","Kisumu")
+    rng=np.random.default_rng(22)
+    for i in range(34):
+        x=rng.uniform(-38,38)
+        y=rng.uniform(-28,45)
+        if abs(x)<d["fence_half_x"]+2 and abs(y)<d["fence_half_y"]+2:
+            continue
+        _tree(g,x,y,rng.uniform(1.1,2.0),rng,arid,float(_height(x,y,d)))
+    for i in range(45):
+        x,y=rng.uniform(-35,35),rng.uniform(-30,45)
+        if abs(x)<d["fence_half_x"]+1 and abs(y)<d["fence_half_y"]+1:
+            continue
+        size=rng.uniform(.12,.55)
+        g.ellipsoid((x,y,float(_height(x,y,d))+.1),(size*1.4,size,size*.55),rng.choice(["#a99b81","#857b66","#c2aa88"]),10)
+    return g.merged()
+
+
+@lru_cache(maxsize=12)
 def static_geometry(c,landscape=True,cutaway=False,detail=True):
     d=layout(c)
-    terrain,arid=_terrain(c,d)
+    terrain,_=_terrain(c,d)
     g=Geometry()
     length,width,height=c.dimensions
     base=.26
@@ -174,9 +214,7 @@ def static_geometry(c,landscape=True,cutaway=False,detail=True):
     for j in range(2):
         g.box((length/2+1.35+j*.32,-.45,.055-j*.02),(.55,1.25,.10-j*.03),"#a6aa9c")
     g.box((0,0,base),(length,width,.17),PALETTE["steel"])
-    for y in (-width/2,width/2):
-        if cutaway and y<0:
-            continue
+    for y in (width/2,):
         g.box((0,y,base+height/2),(length,.075,height),PALETTE["shell"])
         if detail:
             for x in np.arange(-length/2+.12,length/2,.115):
@@ -192,11 +230,9 @@ def static_geometry(c,landscape=True,cutaway=False,detail=True):
             g.box((x,y,base+height/2),(.105,.105,height),"#9baaa6")
             g.box((x,y,base-.08),(.25,.25,.25),PALETTE["dark"])
     if not cutaway:
-        g.box((-length*.18,-width/2-.075,1.40),(length*.47,.025,.62),PALETTE["dark"])
-        text=pv.Text3D("SOLAR / KENYA",depth=.005,height=.18)
-        text.rotate_x(90,inplace=True)
-        text.translate((-length*.18,-width/2-.096,1.36),inplace=True)
-        g.add(text,"#e6dfc8")
+        for kind,groups in zip(("solid","wire"),cover_geometry(c,detail)):
+            for color,mesh in groups.items():
+                g.add(mesh,color,kind)
     _equipment(g,c,cutaway)
     _fence(g,d)
     # A sheltered operator cabinet, hardwired stop, telemetry and weather mast.
@@ -217,19 +253,9 @@ def static_geometry(c,landscape=True,cutaway=False,detail=True):
         (-d["fence_half_x"]+1,-d["fence_half_y"]+4,.04),
         (-d["fence_half_x"]+1.4,-d["fence_half_y"]+3.5,.04)],"#ece5d2")
     if landscape:
-        rng=np.random.default_rng(22)
-        for i in range(34):
-            x=rng.uniform(-38,38)
-            y=rng.uniform(-28,45)
-            if abs(x)<d["fence_half_x"]+2 and abs(y)<d["fence_half_y"]+2:
-                continue
-            _tree(g,x,y,rng.uniform(1.1,2.0),rng,arid,float(_height(x,y,d)))
-        for i in range(45):
-            x,y=rng.uniform(-35,35),rng.uniform(-30,45)
-            if abs(x)<d["fence_half_x"]+1 and abs(y)<d["fence_half_y"]+1:
-                continue
-            size=rng.uniform(.12,.55)
-            g.ellipsoid((x,y,float(_height(x,y,d))+.1),(size*1.4,size,size*.55),rng.choice(["#a99b81","#857b66","#c2aa88"]),10)
+        for kind,groups in zip(("solid","wire"),landscape_geometry(c)):
+            for color,mesh in groups.items():
+                g.add(mesh,color,kind)
     return terrain,*g.merged()
 
 
@@ -312,25 +338,31 @@ CAMERAS={
 
 def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
                   camera="Site overview",cutaway=False,landscape=True,shadows=True,dimensions=False,
-                  size=(1440,810),stamp="",condition="",dynamic=True,annotations=True):
+                  size=(1440,810),stamp="",condition="",dynamic=True,annotations=True,option_layers=False):
     plotter=pv.Plotter(off_screen=True,window_size=size,lighting="none")
     night=elevation<=0
     plotter.set_background("#263b4a" if night else "#91acb7",top="#0d1828" if night else "#c3d5d6")
-    terrain,solids,wires=static_geometry(c,landscape,cutaway,True)
+    terrain,solids,wires=static_geometry(c,False if option_layers else landscape,True if option_layers else cutaway,True)
     plotter.add_mesh(terrain,scalars="terrain_rgb",rgb=True,show_scalar_bar=False,
         ambient=.35 if night else .30,diffuse=.75,smooth_shading=True)
-    def add(groups):
+    def add(groups,prefix=None,visible=True):
         for color,mesh in groups[0].items():
             is_shadow=color in ("#3b4237","#454a3d")
             emissive=color in ("#ffe4a0","#ffdda2")
             plotter.add_mesh(mesh,color=color,show_edges=False,
+                name=f"{prefix}-{color}" if prefix else None,
                 ambient=1 if is_shadow or emissive else .43 if night else .23,
                 diffuse=0 if is_shadow else .8,specular=.23 if color in (PALETTE["pv"],PALETTE["steel"]) else .06,
                 specular_power=26,opacity=.46 if is_shadow else 1,
                 smooth_shading=color in ("#416e49","#5e8051","#3c6543","#617a3f","#748944","#526b3b"))
+            if prefix:
+                plotter.renderer.actors[f"{prefix}-{color}"].visibility=visible
         for color,mesh in groups[1].items():
             plotter.add_mesh(mesh,color=color,line_width=1.1,lighting=False,opacity=.68)
     add((solids,wires))
+    if option_layers:
+        add(cover_geometry(c),"option-cover",not cutaway)
+        add(landscape_geometry(c),"option-landscape",landscape)
     if dynamic:
         add(dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows,cloud_pct))
     direction=sun_vector(max(elevation,12),sun_azimuth)

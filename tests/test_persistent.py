@@ -111,3 +111,56 @@ def test_viewer_service_is_loopback_only_and_stops(monkeypatch):
         service.close()
         service.thread.join(timeout=5)
     assert not service.thread.is_alive()
+
+
+def test_animation_http_response_updates_buffers_without_scene_children(monkeypatch):
+    """Exercise Dash's actual wildcard-output serialization, not just Python state."""
+    import time
+    from dash import no_update, html
+    import solar_model.viewer_service as viewer_service
+    from solar_model.field_view import SceneUpdate
+
+    class StubView:
+        def __init__(self,*args):
+            self.last_used=time.monotonic()
+            self.interval_ms=50
+
+        def layout(self,session):
+            return html.Div('Callback transport check')
+
+        def step(self,*args):
+            scene=SceneUpdate(no_update,[[1.,2.,3.]]+[no_update]*7,[no_update]*8,123.)
+            return scene,'DEPLOYING',25.,*(no_update,)*11
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(viewer_service,'FieldView',StubView)
+    service=viewer_service.ViewerService()
+    service.sessions['transport-test']=StubView()
+    try:
+        key=next(iter(service.app.callback_map))
+        callback=service.app.callback_map[key]
+        outputs=[]
+        for output in callback['output']:
+            if isinstance(output.component_id,dict):
+                outputs.append([{'id':{'type':output.component_id['type'],'slot':i},
+                    'property':output.component_property} for i in range(8)])
+            else:
+                outputs.append({'id':output.component_id,'property':output.component_property})
+        values=[1,1,0,0,0,'Live site clock','2026-10-21 12:00',600,6,['shadows','landscape'],'power']
+        inputs=[{**item,'value':value} for item,value in zip(callback['inputs'],values)]
+        client=service.app.server.test_client()
+        response=client.post('/_dash-update-component',json={'output':key,'outputs':outputs,
+            'inputs':inputs,'state':[{'id':'session','property':'data','value':'transport-test'}],
+            'changedPropIds':['deploy.n_clicks']})
+        assert response.status_code==200, response.text
+        result=response.get_json()['response']
+        assert result['vtk']=={'triggerRender':123.}
+        assert result['tick']=={'interval':50}
+        assert 'children' not in result['vtk']
+        moving=[v for k,v in result.items() if 'moving-mesh' in k]
+        assert moving==[{'points':[1.,2.,3.]}]
+        assert len(response.data)<1000
+    finally:
+        service.close()
