@@ -52,8 +52,11 @@ def interaction_settings(tool="Orbit"):
 
 def actor_state(actor):
     matrix=actor.GetMatrix()
-    return {"userMatrix":[matrix.GetElement(i,j) for j in range(4) for i in range(4)],
+    state={"userMatrix":[matrix.GetElement(i,j) for j in range(4) for i in range(4)],
         "visibility":bool(actor.GetVisibility()),"useBounds":False}
+    if not actor.GetPickable():
+        state["pickable"]=False
+    return state
 
 
 class FieldView:

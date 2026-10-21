@@ -12,10 +12,10 @@ with the default Nairobi design and full deployment, tracking, weather, camera,
 thermal, technical and export controls. The local Streamlit dashboard still
 provides design editing and the annual engineering studies.
 
-The developer-attribution/security release is identified by `revision: credits-security-v1` at `/healthz`.
-After that release, refresh an already-open browser tab to load the new panel,
-picking controls and local browser fan animation. Press Ctrl+F5 if an older tab is cached. No additional service, paid plan, external
-asset host or Python dependency is needed for this equipment update.
+The current sky-marker release is identified by `revision: distant-sun-v1` at `/healthz`.
+Refresh an already-open browser tab to load the new scene. Press Ctrl+F5 if an
+older tab is cached. No additional service, paid plan, external asset host or
+Python dependency is needed for this sky update.
 
 Public simulations now use a signed browser cookie: refreshing reuses the same
 scene instead of allocating another. Two different visitor browsers can run

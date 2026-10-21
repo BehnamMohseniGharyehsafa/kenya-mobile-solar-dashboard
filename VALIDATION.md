@@ -2,6 +2,36 @@
 
 Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; Dash 4.4.1; Dash VTK 0.0.9. Model and app layout/controls are Python; the approved fan-only browser helper is JavaScript.
 
+## Distant sun marker
+
+The sun proxy moves from 15 m to a 60 m scene drawing radius, outside the
+installation, and loses its artificial 1.5 m vertical offset. Its direction
+uses the existing pvlib apparent elevation/azimuth for Nairobi's dated site
+clock, and its radius corresponds to an approximately 0.533° disc when viewed
+from the site origin. This is a finite illustration, not an astronomical-scale
+sky renderer: an orbiting camera has perspective parallax, and the sun can be
+outside the selected camera frame. The drawing radius stays inside the
+browser camera's automatic depth budget. Exact solar angles, PV calculations
+and analytical shadows are unchanged. The reference apparent diameter is
+1919 arcseconds at 1 AU in [NASA's Sun Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html).
+
+Live geometry and static exports now share one sun actor helper. It is unlit,
+non-pickable and excluded from camera-fit bounds; a nonphysical tether line
+is removed from static renders. The sphere retains the same 16×12 resolution;
+no extra browser helper, network request or per-frame buffer is introduced.
+A Western horizon camera preset makes the afternoon sky and landscape easier
+to inspect without changing the existing overview or equipment cameras.
+New checks cover actual Nairobi clock directions, horizon/zenith positions,
+disc size, matching live/export geometry, night hiding and stable camera fit.
+The full local regression suite passed **88 checks in 38.43 s**, with existing
+upstream VTK deprecation warnings.
+
+The final 60-frame Python animation/encoding benchmark measured **4.05 ms
+median / 5.37 ms p95**, with **53 actors / 93,103 triangles**, a **3.47 MiB**
+initial layout and approximately **205.7 KiB** median geometry transfer. The
+fan still makes zero per-frame server requests. These are sampled local CPU
+and transport figures, not hosted latency or browser FPS guarantees.
+
 ## Developer attribution and public resource safeguards
 
 The final Linux CI run passed **86 tests in 18.24 s**, with upstream VTK

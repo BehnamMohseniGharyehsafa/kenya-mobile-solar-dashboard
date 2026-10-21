@@ -7,6 +7,7 @@ from PIL import Image
 from .mechanics import layout,module_geometry,smoothstep,hatch_angle,project_shadow,sun_vector
 from .scene import build_plotter,CAMERAS,PALETTE,camera_pose
 from .landscape import BARK
+from .sky import add_sun,sun_display_position
 
 
 def _module_template(c):
@@ -72,7 +73,7 @@ class InteractiveScene:
         self.box_shadow=pv.PolyData(np.zeros((8,3),np.float32),
             np.array([[4,0,1,3,2],[4,4,5,7,6],[4,0,1,5,4],[4,2,3,7,6],[4,0,2,6,4],[4,1,3,7,5]]))
         self.box_shadow_actor=self.plotter.add_mesh(self.box_shadow,color="#454a3d",opacity=.14,lighting=False)
-        self.sun=self.plotter.add_mesh(pv.Sphere(radius=.6,theta_resolution=16,phi_resolution=12),color="#ffe4a0",lighting=False)
+        self.sun=add_sun(self.plotter,40,150)
         self.light=self.plotter.renderer.lights[0]
         self.update(0,0,90,40,150)
         d=layout(config)
@@ -145,7 +146,7 @@ class InteractiveScene:
             points=np.array([[x,y,z] for x in (-length/2,length/2) for y in (-width/2,width/2) for z in (.27,height+.26)])
             self._set_points(self.box_shadow,project_shadow(points,elevation,sun_azimuth,.015))
         self.sun.visibility=elevation>0
-        self.sun.position=sun_vector(elevation,sun_azimuth)*15+np.array([0,0,1.5])
+        self.sun.position=sun_display_position(elevation,sun_azimuth)
         self.light.position=sun_vector(max(elevation,12),sun_azimuth)*100
         self.light.intensity=.25 if elevation<=0 else max(.30,1.05-cloud*.006)
         self.transforms_sent+=1

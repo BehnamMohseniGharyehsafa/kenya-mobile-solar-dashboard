@@ -15,6 +15,7 @@ from scipy.spatial import ConvexHull
 from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector, hatch_angle
 from .landscape import terrain as _terrain, vegetation, FOLIAGE, BARK, STONE
 from .equipment import panel_housing,display_mesh,button_mesh,rotor_mesh,BUTTONS
+from .sky import add_sun
 
 PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
@@ -265,18 +266,13 @@ def dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows=True,
         projected=project_shadow(vertices,elevation,sun_azimuth,.012)
         hull=ConvexHull(projected[:,:2])
         g.polygon(projected[hull.vertices],"#454a3d")
-    # Visible sun marker follows the actual solar direction, with a precise
-    # sun-path plot elsewhere for positions outside the selected camera frame.
-    if elevation>0:
-        sun=sun_vector(elevation,sun_azimuth)*15+np.array([0,0,1.5])
-        g.ellipsoid(sun,(.6,.6,.6),"#ffe4a0",20)
-        g.line([(0,0,4.3),sun],"#e1bc6a")
     return g.merged()
 
 
 CAMERAS={
     "Deployment camera":((26,-32,23),(0,0,1.7)),
     "Site overview":((26,-32,23),(0,0,1.7)),
+    "Western horizon":((45,12,10),(0,0,4)),
     "Container detail":((11,-12,7.5),(0,0,1.7)),
     "Mechanism inspection":((10,5,9),(0,0,2.5)),
     "Battery & cooling":((-9,-8,5),(0,0,1.4)),
@@ -329,6 +325,7 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
         add(landscape_geometry(c),"option-landscape",landscape)
     if dynamic:
         add(dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows,cloud_pct))
+        add_sun(plotter,elevation,sun_azimuth)
     plotter.add_mesh(display_mesh(c).copy(),scalars="screen_rgb",rgb=True,show_scalar_bar=False,
         lighting=False,name="equipment-display")
     plotter.add_mesh(rotor_mesh(c),color="#c8d7d8",ambient=.45,diffuse=.6,specular=.5,
