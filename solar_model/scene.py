@@ -16,6 +16,7 @@ from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vec
 from .landscape import terrain as _terrain, vegetation, FOLIAGE, BARK, STONE
 from .equipment import panel_housing,display_mesh,button_mesh,rotor_mesh,BUTTONS
 from .sky import add_sun
+from .sky import SUN_DISPLAY_DISTANCE_M
 
 PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
@@ -272,7 +273,7 @@ def dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows=True,
 CAMERAS={
     "Deployment camera":((26,-32,23),(0,0,1.7)),
     "Site overview":((26,-32,23),(0,0,1.7)),
-    "Western horizon":((45,12,10),(0,0,4)),
+    "Western horizon":((45,12,4),(0,0,1.7)),
     "Container detail":((11,-12,7.5),(0,0,1.7)),
     "Mechanism inspection":((10,5,9),(0,0,2.5)),
     "Battery & cooling":((-9,-8,5),(0,0,1.4)),
@@ -357,7 +358,7 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
     pos=np.array(pos)*scale if camera in ("Site overview","Top plan") else pos
     plotter.camera_position=[pos,focus,(0,0,1)]
     plotter.camera.view_angle=43
-    plotter.camera.clipping_range=(.1,350)
+    plotter.camera.clipping_range=(.1,2*SUN_DISPLAY_DISTANCE_M)
     plotter.enable_anti_aliasing("fxaa")
     if dimensions:
         plotter.show_bounds(bounds=(-c.dimensions[0]/2,c.dimensions[0]/2,-c.dimensions[1]/2,c.dimensions[1]/2,.26,c.dimensions[2]+.26),

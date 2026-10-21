@@ -17,6 +17,7 @@ from .scene import CAMERAS,camera_pose
 from .presentation import index_template
 from .equipment import cooling_rpm
 from .branding import developer_banner
+from .vtk_sky import install_sky_bundle,SKY_BUNDLE_URL
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -37,7 +38,9 @@ class ViewerService:
         self.owners={}
         self.lock=threading.Lock()
         self.app=Dash(__name__,title=title,update_title=None,
-            suppress_callback_exceptions=True,server=flask_server if flask_server is not None else True)
+            suppress_callback_exceptions=True,server=flask_server if flask_server is not None else True,
+            external_scripts=[SKY_BUNDLE_URL])
+        install_sky_bundle(self.app.server)
         self.app.index_string=index_template()
         self.app.layout=self._layout
         self._callbacks()

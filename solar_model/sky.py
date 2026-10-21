@@ -10,9 +10,9 @@ import pyvista as pv
 from .mechanics import sun_vector
 
 
-# Keep the proxy beyond the compound but inside vtk.js's automatically fitted
-# depth range. An astronomical-distance mesh would be clipped by the camera.
-SUN_DISPLAY_DISTANCE_M = 60.0
+# A 10 km drawing radius keeps camera parallax small. The renderer's camera
+# adapter extends depth clipping independently of its installation-fit bounds.
+SUN_DISPLAY_DISTANCE_M = 10000.0
 SUN_ANGULAR_DIAMETER_DEG = 0.533
 SUN_DISPLAY_RADIUS_M = SUN_DISPLAY_DISTANCE_M * np.sin(np.radians(SUN_ANGULAR_DIAMETER_DEG / 2))
 
