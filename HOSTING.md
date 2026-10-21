@@ -22,6 +22,15 @@ public origin. No localhost URLs are sent to visitors.
 4. Wait for the build and `/healthz` check to pass, then open the address shown
    by Render and verify deployment, orbit/zoom and live telemetry.
 
+Alternatively, open the [prepared Deploy to Render shortcut](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FBehnamMohseniGharyehsafa%2Fkenya-mobile-solar-dashboard)
+in the browser where you are signed in to Render. For a private repository,
+[authorize Render's GitHub app](https://github.com/apps/render/installations/new)
+for **only this repository** if it is not already included. Review the proposed
+service name, branch `master` and `free` plan, then submit **Deploy Blueprint**.
+The shortcut is Render's setup page, not the public simulation link.
+
+Source: [Render's deployment shortcut documentation](https://render.com/docs/deploy-to-render).
+
 The requested address is `https://behnamproject-pvforafrica.onrender.com`.
 **This is a requested name, not evidence of a live deployment.** Render assigns
 the actual URL and may append a suffix if the name is unavailable. Use the
@@ -30,6 +39,9 @@ verified address on the service's dashboard.
 The page title preserves **BehnamProject-PVforAfrica**. Web addresses use lowercase.
 Automatic deployments are off: future commits do not silently replace a demo.
 Use **Manual Deploy → Deploy latest commit** to publish reviewed updates.
+Blueprint configuration changes can still synchronize automatically; set the
+Blueprint's **Auto Sync** setting to **No** if you also want to review those
+changes before applying them.
 
 ## Turn the link off or on
 

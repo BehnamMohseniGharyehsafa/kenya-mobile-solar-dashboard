@@ -61,6 +61,12 @@ For a public browser link, see [free Render hosting and owner on/off controls](H
 The cloud entry point serves the existing 3D workspace directly through one public
 port; it does not expose the local Streamlit viewer's loopback address.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FBehnamMohseniGharyehsafa%2Fkenya-mobile-solar-dashboard)
+
+The shortcut loads the free service configuration for review. For this private
+repository, first authorize Render's GitHub app for this repository. It does not
+publish the source code or create a service until you submit the deployment.
+
 For an existing project environment:
 
 ```powershell
