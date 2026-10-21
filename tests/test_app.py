@@ -12,34 +12,10 @@ def test_dashboard_pages_and_controls(monkeypatch):
     original = weather.load_bundled
     monkeypatch.setattr(weather, "load_bundled", lambda c: (original(c)[0].iloc[:168], original(c)[1]))
     import solar_model.live_ui as live_ui
-    from PIL import Image
-    from io import BytesIO
-    from tests.weather_fixture import forecast_fixture
-    png=BytesIO()
-    Image.new("RGB",(8,8),(30,60,60)).save(png,format="PNG")
-    monkeypatch.setattr(live_ui,"rendered_view",lambda *a,**kw:png.getvalue())
-    monkeypatch.setattr(live_ui,"weather_feed",lambda *a,**kw:forecast_fixture())
+    monkeypatch.setattr(live_ui,"workspace_url",lambda *a,**kw:"http://127.0.0.1:9999/")
     app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=60).run()
     assert not app.exception
     assert any("Mobile solar lab" in x.value for x in app.title)
-    assert len(app.metric) >= 4
-    # A single command starts deployment; elapsed wall time completes it.
-    app.button(key="field_deploy").click().run()
-    assert not app.exception
-    assert app.session_state.field_session["target"]==1
-    session=app.session_state.field_session
-    session["mechanical_last"]-=25
-    app.run()
-    assert not app.exception
-    assert app.session_state.field_session["progress"]==1
-    app.button(key="field_retract").click().run()
-    assert not app.exception
-    assert app.session_state.field_session["target"]==0
-    session=app.session_state.field_session
-    session["mechanical_last"]-=25
-    app.run()
-    assert not app.exception
-    assert app.session_state.field_session["progress"]==0
     for page in ["Overview", "Sun & tracking", "Storage & cooling", "Controls & faults", "Container design", "Literature & model", "Data & export"]:
         app.selectbox(key="main_page").set_value(page).run()
         assert not app.exception, f"Page failed: {page}"
@@ -56,27 +32,39 @@ def test_dashboard_pages_and_controls(monkeypatch):
     assert app.session_state.design.tracking == "Dual axis"
 
 
-def test_interactive_orbit_component(monkeypatch):
-    """Exercise the installed component and its VTK export, without a full landscape."""
-    import pyvista as pv
-    import solar_model.live_ui as live_ui
-    from PIL import Image
-    from io import BytesIO
+def test_persistent_field_view_controls_and_camera():
+    import json
+    from dash._utils import to_json
+    from solar_model.field_view import FieldView
+    from solar_model.config import Config
     from tests.weather_fixture import forecast_fixture
-
-    png = BytesIO()
-    Image.new("RGB", (8, 8), (30, 60, 60)).save(png, format="PNG")
-    monkeypatch.setattr(live_ui, "rendered_view", lambda *a, **kw: png.getvalue())
-    monkeypatch.setattr(live_ui, "weather_feed", lambda *a, **kw: forecast_fixture())
-
-    def inspection_scene(*args, **kwargs):
-        plotter = pv.Plotter(off_screen=True, window_size=(320, 240))
-        plotter.add_mesh(pv.Cube())
-        return plotter
-
-    monkeypatch.setattr(live_ui, "build_plotter", inspection_scene)
-    app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=60).run()
-    assert not app.exception
-    app.toggle(key="field_orbit").set_value(True).run()
-    assert not app.exception
-    assert app.toggle(key="field_orbit").value
+    view=FieldView(Config(),feed=forecast_fixture())
+    try:
+        layout=view.layout('integration-session')
+        assert 'cameraPosition' in to_json(layout)
+        window=view.scene.plotter.ren_win
+        assert view.scene.module_mesh.n_points==36*view.scene.module_template.n_points
+        assert len(view.scene.modules)==1  # One browser draw call contains every panel.
+        assert len(view.dynamic_indices)==6
+        assert not view.scene.sun.GetUseBounds()
+        assert not view.scene.shadow_actor.GetUseBounds()
+        view.controller.weather={'gust_ms':0}
+        result=view.step('deploy','Live site clock',None,600,6,['shadows','landscape'],'power')
+        assert view.controller.target==1
+        view.controller.last_motion-=7
+        result=view.step('tick','Live site clock',None,600,6,['shadows','landscape'],'power')
+        assert view.controller.deployed
+        assert '100% deployed' in result[1]
+        assert 'Roof 0.0' in result[7]
+        assert window is view.scene.plotter.ren_win
+        patch=to_json(result[0])
+        assert 'cameraPosition' not in patch and 'triggerResetCamera' not in patch
+        assert 'userMatrix' in patch
+        assert 'polys' not in patch and 'rgb' not in patch
+        view.step('retract','Live site clock',None,600,6,['shadows','landscape'],'power')
+        view.controller.last_motion-=7
+        view.step('tick','Live site clock',None,600,6,['shadows','landscape'],'power')
+        assert view.controller.progress==0
+        assert view.controller.snapshot()['hatch_angle_deg']==0
+    finally:
+        view.close()

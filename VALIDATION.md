@@ -1,10 +1,10 @@
 # Validation record
 
-Date: 20 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0. Model and app source are entirely Python.
+Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; Dash 4.4.1; Dash VTK 0.0.9. Model and app source are entirely Python.
 
 ## Automated verification
 
-Latest container-field-lab run: **39 passed in 42.87 s**. This includes the original 26 checks plus packing, shadows, live weather/clock behaviour, stateful dispatch, a real VTK render and interactive orbit-component export. Integration tests exercise each one-command deploy/retract action and all eight workspaces. Provider data are mocked in automated tests; actual Nairobi data were also fetched and inspected separately.
+Latest responsive-container run: **53 passed in 23.68 s**. This includes the original model checks, packing/shadows, live clocks/weather, stateful dispatch, VTK rendering, both roof-closed endpoints, reversible deployment/hold, and the persistent Dash VTK workspace. Provider data are mocked in automated tests; actual Nairobi data were fetched and inspected separately. The initial mesh encoder emits upstream VTK deprecation notices; the checks complete successfully.
 
 Original annual-dashboard baseline: **26 passed in 21.58 s**.
 
@@ -58,7 +58,12 @@ Additional cases cover larger storage, passive cooling, a +10°C ambient stress,
 - The live wind-stow latch requires the configured recovery hold. Stored energy and temperature states match the corresponding continuous dispatch run when it is split into chunks.
 - Manual views with no elapsed time do not create session energy. Charge/discharge and DC balance are also checked in live steps.
 - PyVista renders an actual scene image during the test suite. Linux CI uses Xvfb and OpenGL/EGL libraries. The default compound, packed enclosure and intermediate cutaway were also rendered at 1440 × 810 for visual review.
-- Interactive orbit inspection is tested with the actual installed Streamlit component and a small VTK scene. The supported Panel backend is selected explicitly, including its orientation widget; this avoids an incompatible legacy keyword and the optional Trame dependency.
+- The main interactive viewport is tested with actual Dash VTK component definitions. Every default module is represented in a single batched mesh, with six moving geometry groups. Routine animation patches exclude camera/reset properties, connectivity and cell colours. The render window remains the same across deploy/retract commands.
+- Roof-angle checks cover opening, extraction, closing and both endpoints. Modules stay clear of the roof envelope throughout the last 16% of deployment; reverse motion opens the roof before repacking. Accepted PV remains zero until the full sequence finishes.
+- The loopback-only viewer service starts and shuts down in an integration check. Callback metadata verifies that the animation interval is disabled while a prior request is running, preventing overlapping updates from accumulating.
+
 - The live browser view displayed Nairobi's model weather and the correct EAT/Dublin clock relationship. The operator-facing scene is expressly labelled as a simulated plant; annual TMY results remain separate.
+
+Local 40-frame motion benchmark after initial loading: median **34.40 ms**, 95th percentile **53.53 ms**, including Python calculations and JSON encoding. Median coordinate patch was **212.2 KiB**. Browser drawing, network transit and initial loading are excluded; these measurements are not a guaranteed client frame rate.
 
 These checks do not certify structural loads, actuator forces, collision clearance, safety controls, weather observations or field energy performance. See section 12 of the engineering notes for the model's exact scope.

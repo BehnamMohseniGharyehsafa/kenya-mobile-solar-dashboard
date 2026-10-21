@@ -15,15 +15,25 @@ def smoothstep(x):
 def phase(progress):
     if progress <= 0:
         return "TRANSPORT LOCKED"
-    if progress < .20:
+    if progress < .12:
         return "ROOF HATCHES"
-    if progress < .40:
+    if progress < .32:
         return "LIFT CASSETTES"
-    if progress < .82:
+    if progress < .70:
         return "EXTEND / UNFOLD"
-    if progress < 1:
+    if progress < .84:
         return "LOWER / LOCK SUPPORTS"
+    if progress < 1:
+        return "CLOSE ROOF HATCHES"
     return "DEPLOYED / LOCKED"
+
+
+def hatch_angle(progress):
+    """Open for extraction only; close after arrays clear the roof envelope.
+
+    Reversing the same trajectory opens the roof before repacking starts.
+    """
+    return 108*smoothstep(progress/.12)*(1-smoothstep((progress-.84)/.16))
 
 
 @dataclass(frozen=True)
@@ -63,9 +73,9 @@ def module_poses(c, progress, tilt_deg=0, azimuth_deg=90):
     p = float(np.clip(progress, 0, 1))
     d = layout(c)
     cols, ml, mw = d["columns"], d["module_length_m"], d["module_width_m"]
-    lift = smoothstep((p-.18)/.22)
-    extend = smoothstep((p-.40)/.42)
-    lower = smoothstep((p-.82)/.18)
+    lift = smoothstep((p-.12)/.20)
+    extend = smoothstep((p-.32)/.38)
+    lower = smoothstep((p-.70)/.14)
     output = []
     for i in range(c.modules):
         bank = 1 if (i//cols) % 2 == 0 else -1
@@ -81,7 +91,7 @@ def module_poses(c, progress, tilt_deg=0, azimuth_deg=90):
         center[2] = center[2]*(1-lower)+target[2]*lower
         # Folded cassettes fan around their long axes during extension.
         fold_angle = (1 if col%2 else -1)*65*np.sin(np.pi*extend)
-        if p >= .82:
+        if p >= .70:
             tilt = tilt_deg*lower
             azimuth = azimuth_deg
         else:

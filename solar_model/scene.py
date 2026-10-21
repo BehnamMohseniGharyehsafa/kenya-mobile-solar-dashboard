@@ -12,7 +12,7 @@ from PIL import Image
 import pyvista as pv
 from scipy.spatial import ConvexHull
 
-from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector
+from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector, hatch_angle
 
 PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
@@ -237,7 +237,7 @@ def dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows=True,
     g=Geometry()
     length,width,height=c.dimensions
     roof_z=height+.26
-    hatch=np.radians(108*smoothstep(progress/.20))
+    hatch=np.radians(hatch_angle(progress))
     for sign in (-1,1):
         hinge=np.array([0,sign*width/2,roof_z])
         inward=np.array([0,-sign*np.cos(hatch),np.sin(hatch)])
@@ -268,8 +268,7 @@ def dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows=True,
             g.line([v[0]+b*vaxis+normal*.009,v[1]+b*vaxis+normal*.009],"#8aaeb4")
         for j in range(4):
             g.line([v[j],v[(j+1)%4]],"#c3d2cc")
-        if progress>.40:
-            fraction=smoothstep((progress-.40)/.60)
+        if progress>.32:
             x,y,z=pose.center
             g.tube((x,y,.27),(x,y,z-.04),.032,PALETTE["steel"])
             if progress>.85:
@@ -279,7 +278,7 @@ def dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows=True,
             shadow=project_shadow(pose.vertices,elevation,sun_azimuth,.018)
             g.polygon(shadow,"#3b4237")
     # Telescopic deployment rails and the protected cable chain.
-    extension=smoothstep((progress-.36)/.48)
+    extension=smoothstep((progress-.32)/.38)
     d=layout(c)
     for sign in (-1,1):
         for x in (-length*.30,length*.30):
@@ -313,7 +312,7 @@ CAMERAS={
 
 def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
                   camera="Site overview",cutaway=False,landscape=True,shadows=True,dimensions=False,
-                  size=(1440,810),stamp="",condition=""):
+                  size=(1440,810),stamp="",condition="",dynamic=True,annotations=True):
     plotter=pv.Plotter(off_screen=True,window_size=size,lighting="none")
     night=elevation<=0
     plotter.set_background("#263b4a" if night else "#91acb7",top="#0d1828" if night else "#c3d5d6")
@@ -332,7 +331,8 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
         for color,mesh in groups[1].items():
             plotter.add_mesh(mesh,color=color,line_width=1.1,lighting=False,opacity=.68)
     add((solids,wires))
-    add(dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows,cloud_pct))
+    if dynamic:
+        add(dynamic_geometry(c,progress,tilt,azimuth,elevation,sun_azimuth,shadows,cloud_pct))
     direction=sun_vector(max(elevation,12),sun_azimuth)
     sunlight=pv.Light(position=direction*100,focal_point=(0,0,0),light_type="scene light",
         intensity=.25 if night else max(.30,1.05-cloud_pct*.006),color="#8aa7d1" if night else "#fff1d3")
@@ -364,10 +364,11 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
             grid=False,location="outer",color="#e1e6d9",font_size=11,
             xtitle="East / m",ytitle="North / m",ztitle="Height / m")
     # Restrained viewport labels; technical values remain in the live UI.
-    plotter.add_text(f"{c.site.upper()}  /  FIELD SYSTEM 01",position="upper_left",font_size=12,color="#f2eee0",shadow=False)
-    if stamp:
-        plotter.add_text(stamp,position="lower_left",font_size=10,color="#e3eadf",shadow=False)
-    plotter.add_text("NIGHT OPERATION" if night else condition.upper() or "SOLAR GEOMETRY",position="upper_right",font_size=10,color="#f1d899",shadow=False)
+    if annotations:
+        plotter.add_text(f"{c.site.upper()}  /  FIELD SYSTEM 01",position="upper_left",font_size=12,color="#f2eee0",shadow=False)
+        if stamp:
+            plotter.add_text(stamp,position="lower_left",font_size=10,color="#e3eadf",shadow=False)
+        plotter.add_text("NIGHT OPERATION" if night else condition.upper() or "SOLAR GEOMETRY",position="upper_right",font_size=10,color="#f1d899",shadow=False)
     return plotter
 
 

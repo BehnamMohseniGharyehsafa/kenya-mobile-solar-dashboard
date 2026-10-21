@@ -6,11 +6,12 @@ A Python-only interactive dashboard and detailed energy/thermal/control model fo
 
 ## Container field lab
 
-- **Deploy** opens the roof, lifts the panel cassettes, unfolds the arrays and engages supports. **Retract** isolates PV, packs the panels inside and closes the roof.
+- **Deploy** opens the roof, lifts the panel cassettes, unfolds the arrays, engages supports and **closes the roof again**. **Retract** isolates PV, opens the roof for repacking, then closes it with all panels inside.
 - Inspect the landscape, chain-link fence, gate, concrete base, all PV modules, container corrugations, battery racks, cable trays, converter cabinet, cooling grille and weather mast.
 - Use the live Nairobi clock, an accelerated solar-day tour or a manual study time. Day/night lighting and shadow geometry follow the displayed sun position.
 - Fetch [Open-Meteo](https://open-meteo.com/en/docs) model weather with visible timestamps and freshness. The current-weather scene requires internet access on its first use; annual cached studies work offline.
-- Switch camera, cut away the enclosure, show dimensions, or enable interactive orbit inspection. Export the scene and its technical JSON snapshot.
+- The main view is an interactive, persistent WebGL scene: choose Orbit, Pan or Zoom and drag, or use Shift + left-drag to pan and wheel/right-drag to zoom. Camera presets and Reset view are also available. Camera position persists while the simulation runs; inspection no longer requires pausing updates.
+- Cut away the enclosure, inspect technical dimensions and export the scene or its JSON snapshot. The full-size workspace link opens the same application with more screen space (a new tab starts an independent simulation session).
 
 The mechanism and landscape are engineering illustrations, not a certified machine or a surveyed site. Current weather is model output; the plant state is simulated. Packed and moving panels contribute zero accepted PV generation.
 
@@ -41,7 +42,8 @@ flowchart LR
 | Interactive application | `app.py` |
 | PV, storage, thermal and control calculations | `solar_model/` |
 | Raw weather and its provenance | `data/` |
-| Detailed scene, kinematics and clock-driven plant | `solar_model/scene.py`, `mechanics.py`, `live_ui.py`, `live_simulation.py` |
+| Persistent interactive scene and controls | `solar_model/interactive_scene.py`, `field_view.py`, `viewer_service.py` |
+| Kinematics, session control and clock-driven plant | `solar_model/mechanics.py`, `field_controller.py`, `live_simulation.py` |
 | Current model weather integration | `solar_model/live_weather.py` |
 | Research and engineering assumptions | `ENGINEERING_NOTES.md`, `literature.json` |
 | Verification record | `VALIDATION.md` |
@@ -100,7 +102,9 @@ git pull
 .\.venv\Scripts\python.exe -m streamlit run app.py --server.port 8508
 ```
 
-On Linux servers, install OpenGL/EGL libraries and Xvfb for off-screen VTK rendering; the GitHub Actions workflow shows the tested setup. A desktop graphics driver is normally sufficient on Windows. All application/model/scene source remains Python; VTK and the optional inspection component supply their packaged rendering runtime.
+On Linux servers, install OpenGL/EGL libraries and Xvfb for off-screen VTK exports; the GitHub Actions workflow shows the tested setup. A desktop graphics driver is normally sufficient on Windows. All application/model/scene source remains Python; Dash VTK supplies its packaged browser rendering runtime.
+
+The Container simulator automatically starts a Python/Dash VTK viewer on an available **loopback-only** port in the same process. No second command or manually chosen port is needed. Its persistent vtk.js viewport keeps terrain and equipment loaded, streams batched moving geometry during deployment and performs camera interaction in the browser. Presentation duration defaults to six seconds, adjustable from two to twenty. Clock/plant telemetry updates once per second; charts update every five seconds. A timer guard prevents overlapping animation requests from accumulating. Weather downloads run in a background worker. The initial 3D load still takes several seconds, depending on the computer/browser, but normal clock ticks do not rebuild or grey the Streamlit page. Scene PNG export uses the preset server camera; it does not capture a manually rotated browser camera. This launch configuration is for local use; hosting it for remote clients requires a deliberate reverse-proxy deployment.
 
 ```powershell
 # Test the physical consistency and dashboard.
