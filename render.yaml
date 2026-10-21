@@ -11,3 +11,5 @@ services:
     envVars:
       - key: PV_MAX_SESSIONS
         value: "2"
+      - key: PV_WEATHER_CACHE_DIR
+        value: /tmp/solar-weather

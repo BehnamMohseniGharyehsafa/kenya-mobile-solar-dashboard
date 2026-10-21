@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements-cloud.txt
 RUN useradd --create-home --uid 10001 solar
 COPY --chown=solar:solar . .
 USER solar
-ENV MPLCONFIGDIR=/tmp/matplotlib
+ENV MPLCONFIGDIR=/tmp/matplotlib \
+    PV_WEATHER_CACHE_DIR=/tmp/solar-weather
 EXPOSE 10000
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "cloud_app:create_app()"]

@@ -6,13 +6,15 @@ The returned timestamps and cache age remain visible to the operator.
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import os
 
 import numpy as np
 import pandas as pd
 import requests
 
 API_URL = "https://api.open-meteo.com/v1/forecast"
-CACHE = Path(__file__).resolve().parents[1] / ".weather-cache"
+CACHE = Path(os.environ.get("PV_WEATHER_CACHE_DIR",
+    str(Path(__file__).resolve().parents[1] / ".weather-cache")))
 VARIABLES = {
     "temperature_2m": "temp_air", "relative_humidity_2m": "relative_humidity",
     "surface_pressure": "pressure", "wind_speed_10m": "wind_speed",
@@ -63,8 +65,14 @@ def fetch_feed(c, timeout=12):
     payload = response.json()
     payload["retrieval"] = {"retrieved_utc": datetime.now(timezone.utc).isoformat(), "url": response.url}
     frame, meta = parse_feed(payload, c)
-    CACHE.mkdir(exist_ok=True)
-    cache_path(c).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:
+        CACHE.mkdir(parents=True,exist_ok=True)
+        cache_path(c).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    except OSError as exc:
+        # A validated provider response remains usable when the optional disk
+        # cache is unavailable (read-only deployment, permissions, full disk).
+        return frame, {**meta, "cache_status": "Fetched from provider; disk cache unavailable",
+            "cache_error": str(exc)}
     return frame, {**meta, "cache_status": "Fetched from provider"}
 
 
@@ -78,7 +86,7 @@ def load_feed(c, now=None, force=False):
             age = (now - pd.Timestamp(cached[1]["retrieved_utc"])).total_seconds()
             if not force and 0 <= age < 900:
                 return cached[0], {**cached[1], "cache_status": "Provider response cached <15 min"}
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, OSError):
             cached = None
     try:
         return fetch_feed(c)

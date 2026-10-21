@@ -23,6 +23,46 @@ def weather_at_noon():
     return noon,sample_weather(frame,meta,noon)
 
 
+@pytest.mark.parametrize("failure",["mkdir","write"])
+def test_provider_weather_stays_usable_when_disk_cache_is_unwritable(monkeypatch,failure):
+    import solar_model.live_weather as weather
+    c=Config()
+    frame,_=forecast_fixture()
+    payload={"timezone":c.timezone,"latitude":c.latitude,"longitude":c.longitude,
+        "hourly":{"time":frame.index.tz_localize(None).strftime("%Y-%m-%dT%H:%M").tolist(),
+            **{source:(frame[target]/100 if target=="pressure" else frame[target]).tolist()
+                for source,target in weather.VARIABLES.items()}}}
+
+    class Response:
+        url="https://api.open-meteo.com/v1/forecast?latitude=-1.2864&longitude=36.8172"
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return payload
+
+    class DeniedFile:
+        def exists(self):
+            return False
+        def write_text(self,*args,**kwargs):
+            raise PermissionError("Weather cache is read-only")
+
+    class Cache:
+        def mkdir(self,*args,**kwargs):
+            if failure=="mkdir":
+                raise PermissionError("Cache directory is read-only")
+        def __truediv__(self,name):
+            return DeniedFile()
+
+    monkeypatch.setattr(weather,"CACHE",Cache())
+    monkeypatch.setattr(weather.requests,"get",lambda *args,**kwargs:Response())
+    actual,meta=weather.load_feed(c,force=True)
+    assert actual.ghi.to_numpy()==pytest.approx(frame.ghi.to_numpy())
+    assert actual.pressure.to_numpy()==pytest.approx(frame.pressure.to_numpy())
+    assert meta["provider"]=="Open-Meteo"
+    assert meta["cache_status"]=="Fetched from provider; disk cache unavailable"
+    assert "read-only" in meta["cache_error"]
+
+
 def test_all_modules_fit_inside_closed_container():
     c=Config()
     poses=module_poses(c,0)

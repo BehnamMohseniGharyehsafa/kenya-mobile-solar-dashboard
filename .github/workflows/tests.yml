@@ -46,6 +46,16 @@ jobs:
         run: docker build -t solar-cloud .
       - name: Start within the free service memory allowance
         run: docker run -d --name solar-cloud --memory=512m -p 10000:10000 solar-cloud
+      - name: Verify weather cache permissions as the application user
+        run: >-
+          docker exec solar-cloud python -c
+          "from solar_model.live_weather import CACHE;
+          CACHE.mkdir(parents=True,exist_ok=True);
+          probe=CACHE/'permission-check';
+          probe.write_text('ok');
+          assert probe.read_text()=='ok';
+          probe.unlink();
+          print('Weather cache is writable by the application user:',CACHE)"
       - name: Exercise the real public scene and callback
         run: docker exec solar-cloud python -m tools.smoke_cloud http://127.0.0.1:10000
       - name: Record memory and diagnostics

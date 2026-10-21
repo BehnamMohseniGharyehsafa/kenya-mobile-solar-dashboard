@@ -95,7 +95,10 @@ outside the published application.
   Python still computes the model and sends geometry. Network latency and shared
   CPU affect animation speed; a desktop benchmark is not a hosted FPS guarantee.
 - Weather is downloaded from Open-Meteo. This is model weather, not measurements
-  from a site sensor. Filesystem caches and in-memory state are disposable.
+  from a site sensor. `PV_WEATHER_CACHE_DIR=/tmp/solar-weather` gives the non-root
+  container user a writable, disposable cache. A cache write failure is reported
+  but does not discard an otherwise validated provider response. Filesystem caches
+  and in-memory state are disposable.
 - Keep the service on the free plan. Free-tier quotas and availability follow
   [Render's current limits](https://render.com/docs/free).
 
