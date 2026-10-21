@@ -1,8 +1,30 @@
 # Validation record
 
-Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; Dash 4.4.1; Dash VTK 0.0.9. Model and app source are entirely Python.
+Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; Dash 4.4.1; Dash VTK 0.0.9. Model and app layout/controls are Python; the approved fan-only browser helper is JavaScript.
 
 ## Automated verification
+
+The smooth-fan update removes the former 100 ms server callback. New actual
+Node runtime checks exercise frame-rate independence (30/60/144 Hz), acceleration,
+coast-down, one loop after repeated commands, offscreen/hidden/reduced-motion
+pause/resume, high-refresh capping and stall recovery. Dash integration checks
+verify the helper is served locally, the fan callback is clientside, commands
+stay small, and PNG export receives the browser's actual rotor pose. Earlier
+10 Hz HTTP payload timings below describe the superseded release, not browser
+smoothness. Final local regression: **71 passed in 38.13 s**, including six
+JavaScript runtime timing/lifecycle scenarios through the Node test runner.
+
+A 120-frame desktop geometry/encoding sample measured 4.30 ms median and 5.40 ms
+p95, with the existing 53 actors / 93,103 triangles / 203.54 KiB update unchanged.
+Fan animation adds zero per-frame server requests; a state-change command is
+44 bytes before callback framing. These are CPU/transport checks, not an FPS
+guarantee. A browser sample during deployment plus a concurrent full Python
+test run averaged 46 local pose updates/s; device/GPU load affects the cadence.
+Actual browser checks retained the container close-up during rotation, reached
+100% deployment with a closed roof, and isolated PV while cooling continued
+under the simulated emergency stop. Server counters recorded only plant ticks,
+camera changes and explicit operator actions, with no fan interval requests.
+
 
 The operator-panel/fan release adds checks for stop/reset/restart sequencing,
 PV isolation with protective cooling retained, frozen tracker pose during a stop,

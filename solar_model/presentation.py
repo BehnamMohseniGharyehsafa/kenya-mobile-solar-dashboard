@@ -1,4 +1,4 @@
-"""Python-authored presentation styles, with a local CSS fan indicator."""
+"""Python-authored presentation styles; the fan uses a local animation clock."""
 
 VIEWER_CSS="""
 * { box-sizing: border-box; }
@@ -81,15 +81,11 @@ button:focus-visible, input:focus-visible { outline:2px solid #f2c16b; outline-o
 .hmi-cooling strong { display:block; margin-bottom:4px; font-size:10px; color:#d1e6db; }
 .fan-indicator { width:48px; height:48px; position:relative; flex-shrink:0; border:3px solid #779292;
  border-radius:6px; background:radial-gradient(circle,#243a40 60%,#102127 63%); box-shadow:inset 0 0 10px #0008; }
-.fan-blades { width:40px; height:40px; position:absolute; left:1px; top:1px; }
+.fan-blades { width:40px; height:40px; position:absolute; left:1px; top:1px; will-change:transform; }
 .fan-blades i { display:block; position:absolute; height:19px; width:12px; border-radius:65% 15% 60% 35%;
  background:linear-gradient(130deg,#c9dcda,#617d85); left:14px; top:1px; transform-origin:6px 19px; }
 .fan-blades i:nth-child(2) { transform:rotate(120deg); }.fan-blades i:nth-child(3) { transform:rotate(240deg); }
 .fan-hub { position:absolute; width:10px; height:10px; border-radius:50%; left:16px; top:16px; background:#d7e4de; }
-.spinning .fan-blades { animation:fan-spin 5s linear infinite; will-change:transform; }
-.equipment-inspector:not([open]) .fan-blades { animation-play-state:paused; }
-@keyframes fan-spin { to { transform:rotate(360deg); } }
-@media(prefers-reduced-motion:reduce) { .spinning .fan-blades { animation:none; } }
 .hmi-notice { font-size:10px; line-height:1.45; padding:9px 0 0; margin:0; color:#e1d7b5; }
 .hmi-footnote { display:block; font-size:8px; line-height:1.4; margin-top:8px; color:#9fb7b4; }
 #clocks { font:11px 'Consolas',monospace; color:#95b1b2; padding:3px 0; }
@@ -133,7 +129,7 @@ a { color:#8bdbc3; text-decoration:none; } a:hover { text-decoration:underline; 
 
 
 def index_template():
-    # Dash owns all browser rendering; the application adds static styles only.
+    # Dash owns rendering; its local fan helper is served through the assets API.
     return """<!DOCTYPE html><html><head>{%metas%}<title>{%title%}</title>
 {%favicon%}{%css%}<style>"""+VIEWER_CSS+"""</style></head><body>
 {%app_entry%}<footer>{%config%}{%scripts%}{%renderer%}</footer></body></html>"""

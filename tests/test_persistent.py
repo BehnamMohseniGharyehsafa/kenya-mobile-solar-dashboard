@@ -170,6 +170,7 @@ def test_png_export_honors_selected_resolution_and_camera(monkeypatch):
     from io import BytesIO
     import threading
     import time
+    from types import SimpleNamespace
     from dash import html
     import solar_model.viewer_service as viewer_service
 
@@ -178,6 +179,7 @@ def test_png_export_honors_selected_resolution_and_camera(monkeypatch):
             self.last_used=time.monotonic()
             self.lock=threading.Lock()
             self.scene=self
+            self.fan_actor=SimpleNamespace(origin=None,orientation=None)
 
         def layout(self,session):
             return html.Div('Export transport check')
@@ -204,11 +206,14 @@ def test_png_export_honors_selected_resolution_and_camera(monkeypatch):
                 {'id':'export-png','property':'n_clicks','value':1}],
             'state':[{'id':'session','property':'data','value':'export-test'},
                 {'id':'export-size','property':'value','value':'4K'},
-                {'id':'camera','property':'value','value':'Mechanism inspection'}],
+                {'id':'camera','property':'value','value':'Mechanism inspection'},
+                {'id':'fan-rotor','property':'actor','value':{'origin':[3.6,-.5,1.31],'orientation':[37,0,0]}}],
             'changedPropIds':['export-png.n_clicks']})
         assert response.status_code==200,response.text
         assert response.get_json()['response']['download']['data']['filename']=='container_scene.png'
         assert view.size==(3840,2160)
         assert view.camera=='Mechanism inspection'
+        assert view.fan_actor.origin==[3.6,-.5,1.31]
+        assert view.fan_actor.orientation==[37,0,0]
     finally:
         service.close()

@@ -1,8 +1,8 @@
 import json
-import time
-from unittest.mock import patch
+from pathlib import Path
+import shutil
+import subprocess
 
-from dash import no_update
 from dash._utils import to_json
 import numpy as np
 import pytest
@@ -73,12 +73,9 @@ def test_installed_stop_isolates_pv_freezes_tracking_and_preserves_cooling():
 def test_rotor_is_one_rigid_transform_with_no_physics_or_mesh_rebuild():
     view=FieldView(Config(),feed=forecast_fixture())
     try:
-        view.fan_running=True
-        view.fan_last=100.
         points=view.scene.fan_actor.mapper.dataset.points.copy()
-        with patch.object(view.controller,"step_plant",side_effect=AssertionError("Fan invoked physics")):
-            first=view.fan_frame(100.1)
-            second=view.fan_frame(100.2)
+        first={"userMatrix":rotor_matrix(fan_centre(view.config),10),"useBounds":False}
+        second={"userMatrix":rotor_matrix(fan_centre(view.config),20),"useBounds":False}
         assert first!=second and len(to_json(second))<600
         assert set(second)=={"userMatrix","useBounds"}
         assert np.array_equal(view.scene.fan_actor.mapper.dataset.points,points)
@@ -86,8 +83,6 @@ def test_rotor_is_one_rigid_transform_with_no_physics_or_mesh_rebuild():
         matrix=np.array(second["userMatrix"]).reshape(4,4,order="F")
         assert matrix@centre==pytest.approx(centre)
         assert matrix[:3,:3].T@matrix[:3,:3]==pytest.approx(np.eye(3))
-        view.fan_running=False
-        assert view.fan_frame(100.3) is no_update
     finally:
         view.close()
 
@@ -97,7 +92,8 @@ def test_display_updates_only_small_color_array_and_button_picks_are_explicit():
     try:
         view.step("tick","Live site clock",None,600,6,["landscape","shadows"],"power")
         updates=view.take_instrument_changes()
-        assert "hmi-pv" in updates and "fan-tick" in updates
+        assert "hmi-pv" in updates and "fan-command" in updates
+        assert len(to_json(updates["fan-command"]))<160
         assert len(to_json(updates.get("hmi-segments",{})))<1500
         assert view.scene.display_actor.mapper.dataset.n_cells==160
         assert FieldView.pick_action({"representationId":"world-stop"})=="panel-stop"
@@ -110,6 +106,7 @@ def test_display_updates_only_small_color_array_and_button_picks_are_explicit():
         encoded=to_json(view.layout("hmi-test"))
         assert "hmi-start" in encoded and "pickingModes" in encoded and "fan-rotor" in encoded
         assert "camera-bounds" in encoded
+        assert "fan-tick" not in encoded
     finally:
         view.close()
 
@@ -124,24 +121,26 @@ def test_fan_indication_requires_delivered_cooling_and_unknown_values_are_visibl
     assert display_colors(lines).shape==(160,3)
 
 
-def test_fan_http_callback_is_a_small_transform_not_a_plant_update():
+def test_fan_animation_is_local_and_asset_is_served_without_a_session():
     from solar_model.viewer_service import ViewerService
-    class View:
-        def fan_frame(self):
-            return {"userMatrix":rotor_matrix((3.6,-.5,1.31),20),"useBounds":False}
-        def close(self):
-            pass
     service=ViewerService(start_server=False)
-    service.sessions["fan-test"]=View()
     try:
-        callback=next(key for key in service.app.callback_map if "fan-rotor.actor" in key)
-        response=service.app.server.test_client().post("/_dash-update-component",json={
-            "output":callback,"outputs":[{"id":"fan-rotor","property":"actor"},{"id":"vtk","property":"triggerRender"}],
-            "inputs":[{"id":"fan-tick","property":"n_intervals","value":1}],
-            "state":[{"id":"session","property":"data","value":"fan-test"}],"changedPropIds":["fan-tick.n_intervals"]})
+        dependencies=service.app.server.test_client().get("/_dash-dependencies").get_json()
+        callback=next(item for item in dependencies if item["output"]=="fan-runtime.data")
+        assert callback["clientside_function"]=={"namespace":"pv_fan","function_name":"configure"}
+        assert callback["inputs"]==[{"id":"fan-command","property":"data"}]
+        assert not any("fan-rotor.actor" in key for key in service.app.callback_map)
+        response=service.app.server.test_client().get("/assets/fan_animation.js")
         assert response.status_code==200,response.text
-        assert len(response.data)<700
-        assert set(response.get_json()["response"])=={"fan-rotor","vtk"}
-        assert "points" not in response.text and "children" not in response.text
+        assert "requestAnimationFrame" in response.text and "fetch(" not in response.text
+        assert not service.sessions
     finally:
         service.close()
+
+
+@pytest.mark.skipif(shutil.which("node") is None,reason="Node is only needed for browser-helper tests")
+def test_browser_fan_timing_and_lifecycle():
+    root=Path(__file__).resolve().parents[1]
+    result=subprocess.run([shutil.which("node"),"--test","tests/fan_animation.test.cjs"],
+        cwd=root,capture_output=True,text=True,timeout=20)
+    assert result.returncode==0,result.stdout+result.stderr

@@ -16,6 +16,7 @@ from dash._utils import to_json
 
 from solar_model.config import Config
 from solar_model.field_view import FieldView
+from solar_model.equipment import fan_centre
 from tests.weather_fixture import forecast_fixture
 
 
@@ -54,20 +55,14 @@ def benchmark(frames=60, profile=None):
         if profiler:
             profiler.disable()
             pstats.Stats(profiler).sort_stats("cumulative").dump_stats(profile)
-        view.fan_running=True
-        view.fan_last=100.
-        fan_times=[]
-        for frame in range(frames):
-            start=time.perf_counter()
-            fan_json=to_json(view.fan_frame(100+(frame+1)/10))
-            fan_times.append((time.perf_counter()-start)*1000)
         return {"frames":frames,"median_python_and_encoding_ms":float(np.median(times)),
             "p95_python_and_encoding_ms":float(np.percentile(times,95)),
             "median_geometry_kib":float(np.median(sizes)/1024),
             "actors":len(view.actors),"triangles":sum(a.mapper.dataset.triangulate().n_cells for a in view.actors),
             "initial_layout_mib":initial_mib,
-            "fan_median_python_and_encoding_ms":float(np.median(fan_times)),
-            "fan_transform_bytes":len(fan_json.encode()),
+            "fan_per_frame_server_requests":0,
+            "fan_command_bytes":len(to_json({"centre":list(fan_centre(view.config)),
+                "visual_rpm":12}).encode()),
             "scope":"Animation update plus geometry JSON encoding; excludes plant solves, browser drawing and network."}
     finally:
         view.close()

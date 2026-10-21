@@ -23,7 +23,7 @@ from .live_weather import load_feed, weather_label
 from .mechanics import phase, hatch_angle, layout
 from .scene import CAMERAS
 from . import charts
-from .equipment import inspector,cooling_rpm,display_colors,display_lines,rotor_matrix,fan_centre
+from .equipment import inspector,cooling_rpm,display_colors,display_lines,fan_centre
 
 WEATHER_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix="site-weather")
 BUTTON={"background":"#203841","color":"#edf2ed","border":"1px solid #456169",
@@ -71,10 +71,6 @@ class FieldView:
         self.render_options=(True,False)
         self.sent_values={}
         self.instrument_changes={}
-        self.fan_running=False
-        self.fan_angle=0.
-        self.fan_last=time.monotonic()
-        self.last_fan_matrix=None
         self.default_camera_bounds=tuple(self.scene.plotter.bounds)
         self._index_actors()
         if feed is not None:
@@ -186,10 +182,15 @@ class FieldView:
     def layout(self, session):
         button=lambda name,identity:html.Button(name,id=identity,n_clicks=0,style=BUTTON,className="control")
         c=self.config
+        # Seed the first mesh with real digits. A slow initial browser mount
+        # must not lose an early asynchronous DataArray update and show dashes.
+        m=self.controller.model
+        self.scene.display_mesh.cell_data["screen_rgb"]=display_colors(display_lines(m,cooling_rpm(m)))
         coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
-            dcc.Interval(id="fan-tick",interval=100,n_intervals=0,disabled=True),
+            dcc.Store(id="fan-command",data={"centre":list(fan_centre(c)),"visual_rpm":0}),
+            dcc.Store(id="fan-runtime"),
             html.Div([html.Div([html.P("FIELD SYSTEM 01 / RENEWABLE ENERGY",className="eyebrow"),
                 html.H2(getattr(self,"public_title",None) or ["Mobile solar",html.Span(" / field lab")])]),
                 html.Div([html.Strong(f"{c.site.upper()} · KENYA"),html.Br(),coordinates],className="site-chip")],
@@ -363,7 +364,6 @@ class FieldView:
     def update_instruments(self):
         c,m=self.controller,self.controller.model
         rpm=cooling_rpm(m)
-        self.fan_running=bool(rpm)
         def value(key,decimals=1,multiplier=1):
             v=m.get(key)
             return f"{v*multiplier:.{decimals}f}" if v is not None else "—"
@@ -379,8 +379,7 @@ class FieldView:
             "hmi-stop":{"disabled":c.emergency_stopped},
             "hmi-cooling":{"children":"Cooling · "+m.get("cooling_state","WAITING FOR WEATHER")},
             "hmi-rpm":{"children":f"{rpm} rpm assumed demand · {m.get('cooling_kw',0):.3f} kW"},
-            "fan-indicator":{"className":"fan-indicator"+(" spinning" if rpm else "")},
-            "fan-tick":{"disabled":not self.fan_running}}
+            "fan-command":{"data":{"centre":list(fan_centre(self.config)),"visual_rpm":12 if rpm else 0}}}
         self.scene.button_actors["stop"].position=(-.016 if c.emergency_stopped else 0,0,0)
         targets["world-stop"]={"actor":actor_state(self.scene.button_actors["stop"])}
         colors=display_colors(display_lines(m,rpm))
@@ -396,18 +395,6 @@ class FieldView:
         changes=self.instrument_changes
         self.instrument_changes={}
         return changes
-
-    def fan_frame(self,now=None):
-        # The only per-frame calculation is one rigid transform (16 numbers).
-        # No plant solve, VTK mesh write, chart, LCD update or scene traversal.
-        now=time.monotonic() if now is None else now
-        if not self.fan_running or self.closed:
-            self.fan_last=now
-            return no_update
-        self.fan_angle=(self.fan_angle+max(0,min(now-self.fan_last,.3))*72)%360
-        self.fan_last=now
-        self.last_fan_matrix=rotor_matrix(fan_centre(self.config),self.fan_angle)
-        return {"userMatrix":self.last_fan_matrix,"useBounds":False}
 
     def telemetry(self, detail):
         c,m=self.controller,self.controller.model

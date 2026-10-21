@@ -7,7 +7,7 @@ import time
 import uuid
 from urllib.parse import parse_qs,urlparse
 
-from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html,set_props
+from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html,set_props,ClientsideFunction
 from flask import request,has_request_context
 from werkzeug.serving import make_server,WSGIRequestHandler
 
@@ -121,12 +121,8 @@ class ViewerService:
                 set_props(identity,props)
             return scene.points,scene.actors,scene.render,*values,view.interval_ms
 
-        @self.app.callback(Output("fan-rotor","actor"),Output("vtk","triggerRender",allow_duplicate=True),
-            Input("fan-tick","n_intervals"),State("session","data"),prevent_initial_call=True)
-        def animate_fan(tick,session):
-            view=self.sessions.get(session)
-            state=view.fan_frame() if view is not None else no_update
-            return (state,time.time()) if state is not no_update else (no_update,no_update)
+        self.app.clientside_callback(ClientsideFunction(namespace="pv_fan",function_name="configure"),
+            Output("fan-runtime","data"),Input("fan-command","data"),State("session","data"))
 
         @self.app.callback(Output("camera","value"),Output("equipment-inspector","open"),
             Input("inspect-equipment","n_clicks"),prevent_initial_call=True)
@@ -150,8 +146,9 @@ class ViewerService:
             return interaction_settings(tool)
 
         @self.app.callback(Output("download","data"),Input("export","n_clicks"),Input("export-png","n_clicks"),
-            State("session","data"),State("export-size","value"),State("camera","value"),prevent_initial_call=True)
-        def export(clicks,png_clicks,session,size,camera):
+            State("session","data"),State("export-size","value"),State("camera","value"),
+            State("fan-rotor","actor"),prevent_initial_call=True)
+        def export(clicks,png_clicks,session,size,camera,rotor):
             view=self.sessions.get(session)
             if view is None:
                 return no_update
@@ -159,10 +156,19 @@ class ViewerService:
                 if ctx.triggered_id=="export-png":
                     sizes={"1080p":(1920,1080),"1440p":(2560,1440),"4K":(3840,2160)}
                     view.scene.set_camera(camera if camera in CAMERAS else "Site overview")
-                    matrix=getattr(view,"last_fan_matrix",None)
-                    if matrix is not None:
+                    matrix=(rotor or {}).get("userMatrix")
+                    orientation=(rotor or {}).get("orientation")
+                    origin=(rotor or {}).get("origin")
+                    if isinstance(orientation,list) and len(orientation)==3 and isinstance(origin,list) and len(origin)==3:
                         import numpy as np
-                        view.scene.fan_actor.user_matrix=np.asarray(matrix).reshape(4,4,order="F")
+                        if np.isfinite(orientation).all() and np.isfinite(origin).all():
+                            view.scene.fan_actor.origin=origin
+                            view.scene.fan_actor.orientation=orientation
+                    elif isinstance(matrix,list) and len(matrix)==16:
+                        import numpy as np
+                        pose=np.asarray(matrix,dtype=float).reshape(4,4,order="F")
+                        if np.isfinite(pose).all():
+                            view.scene.fan_actor.user_matrix=pose
                     return dcc.send_bytes(view.scene.png(sizes.get(size,sizes["1440p"])).getvalue(),"container_scene.png")
                 snapshot=view.controller.snapshot()
                 snapshot["instrumentation"]={"fan_demand_rpm_assumed":cooling_rpm(view.controller.model),

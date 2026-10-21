@@ -22,15 +22,29 @@ certification. The separate-reset/restart behaviour follows the principle
 described by [Pilz](https://www.pilz.com/en-US/support/faq/standards/articles/180045)
 and [ABB](https://help.plc.abb.com/AB281_en/sf_emergencystop.html).
 
-The three-blade HVAC rotor is one small fixed mesh. A separate 100 ms callback
-computes only its rigid 4×4 transform, with no plant solve, geometry traversal,
-coordinate buffer, chart or LCD update. It is disabled when delivered cooling
-power is zero or the cooling mode is passive/faulted. The HMI fan indicator uses
-local CSS animation without server animation requests. Visual rotation is slowed
-to 12 rpm so the blades remain inspectable: displayed 900 rpm compressor-mode
-and 600 rpm free-cooling demands are assumed indications, not measurements or
-manufacturer curves. No extra fan energy is added to the existing aggregate HVAC
-load. JSON snapshots include these assumptions and operator/interlock states.
+The three-blade HVAC rotor is one small fixed mesh. The initial 10 Hz Python/HTTP
+animation was inexpensive on the server, but network jitter made it visibly
+stutter. With the owner's approval, a small same-origin JavaScript asset now
+animates only its native orientation about the fan hub using requestAnimationFrame
+and the public Dash set_props API. GeometryRepresentation already requests its
+native render after an actor update, so no duplicate View update is sent.
+Python sends only a small start/stop demand when delivered cooling changes;
+there are zero per-frame network requests or Python fan callbacks. Energy,
+interlocks, cooling demand and weather calculations remain Python.
+
+The 3D rotor and readable HMI indicator share the same phase, with an elapsed-time
+first-order visual ramp (0.35 s acceleration / 0.55 s coast-down). Rendering is
+capped at 60 updates/s, pauses for hidden/offscreen scenes, respects reduced
+motion, and discards long-stall catch-up. After initial lazy component mounting,
+one animation loop owns the rotor; repeated cooling updates do not reset phase.
+The initial display mesh is seeded with current digits before serialization.
+PNG export receives the browser's current pose only when requested.
+
+Visual rotation is slowed to 12 rpm for inspection: displayed 900 rpm compressor
+and 600 rpm free-cooling demands remain assumed indications, not measurements or
+manufacturer curves. Ramping is a presentation effect, not a fan-inertia or
+motor-dynamics model. No extra fan energy is added to the aggregate HVAC load.
+JSON snapshots retain these assumptions and operator/interlock states.
 
 The equipment camera uses a single invisible, non-pickable bounds proxy; other
 browser actors are excluded from camera fitting. The overview proxy retains the
@@ -39,7 +53,7 @@ front. Preset changes do not reconstruct the scene or erase manual orbit control
 
 ## 1. Deliverable and intended use
 
-The dashboard is a local Python application using Streamlit, Plotly, pvlib, pandas and NumPy. All application/model/chart source is Python; there is no separately authored HTML, CSS or JavaScript frontend. Streamlit and Plotly supply their normal browser runtime internally.
+The dashboard is a local Python application using Streamlit, Plotly, pvlib, pandas and NumPy. The layout, model, controls and chart source are Python. The approved minimal browser fan-animation asset supplies local visual motion only; it needs no extra package or build step.
 
 It estimates renewable generation, useful AC delivery, storage operation, auxiliary consumption, reliability shortfalls and container/battery temperatures. It also exposes slow supervisory controller states, fault injection and comparisons. It does not communicate with equipment or issue live control commands.
 

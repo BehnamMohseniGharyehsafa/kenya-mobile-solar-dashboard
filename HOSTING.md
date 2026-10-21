@@ -12,9 +12,9 @@ with the default Nairobi design and full deployment, tracking, weather, camera,
 thermal, technical and export controls. The local Streamlit dashboard still
 provides design editing and the annual engineering studies.
 
-The HMI/fan release is identified by `revision: hmi-fan-v1` at `/healthz`.
+The HMI/fan release is identified by `revision: smooth-fan-v2` at `/healthz`.
 After that release, refresh an already-open browser tab to load the new panel,
-picking controls and fan callback. No additional service, paid plan, external
+picking controls and local browser fan animation. Press Ctrl+F5 if an older tab is cached. No additional service, paid plan, external
 asset host or Python dependency is needed for this equipment update.
 
 ## Deployment

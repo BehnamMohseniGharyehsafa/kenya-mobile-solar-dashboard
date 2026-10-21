@@ -1,6 +1,6 @@
 # Kenya mobile solar lab
 
-A Python-only interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. The main workspace shows a detailed 3D container compound with one-command deployment/retraction, current model weather, a clock-driven sun and analytical shadows. Historical JRC PVGIS weather remains bundled for the annual engineering studies.
+A Python interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. The main workspace shows a detailed 3D container compound with one-command deployment/retraction, current model weather, a clock-driven sun and analytical shadows. Historical JRC PVGIS weather remains bundled for the annual engineering studies.
 
 **[Open the public simulation — BehnamProject-PVforAfrica](https://behnamproject-pvforafrica.onrender.com/)**
 
@@ -24,7 +24,7 @@ Example desktop workspace; values change with site time and weather. [Open the 1
 - Cut away the enclosure, inspect technical dimensions and export the scene or its JSON snapshot. The full-size workspace link opens the same application with more screen space (a new tab starts an independent simulation session).
 - Choose **Inspect HMI & fan** for an equipment close-up and a readable operator panel. The physical LCD shows PV power, SOC, battery temperature and assumed fan demand; the overlay also shows AC load and PV contactor state.
 - Click the coloured buttons on the container or their matching full-size HMI controls: **green Start/Reset**, **yellow Hold/Resume**, **red latched simulated E-stop**. Resetting the stop does not restart the plant; press Start separately. The stop freezes mechanism/tracking motion and isolates PV generation while automatic protective cooling remains available.
-- Watch the three-blade cooling rotor turn when the model delivers HVAC power. Its separate animation sends one tiny rigid transform at 10 Hz; it does not solve the plant or stream the landscape. The HMI fan indicator animates locally with CSS. Both are slowed for inspection; the displayed 600/900 rpm demands are assumptions rather than measurements or OEM fan curves.
+- Watch the three-blade cooling rotor turn when the model delivers HVAC power. The 3D blades and HMI indicator share a browser animation clock, capped at 60 updates/s with gentle spin-up/coast-down. No per-frame server requests, plant solves or landscape transfers are needed. Motion pauses when hidden or off screen and respects reduced-motion preferences. Both are slowed for inspection; the displayed 600/900 rpm demands are assumptions rather than measurements or OEM fan curves.
 
 [View the verified live HMI and cooling-fan close-up](assets/screenshots/control-panel-hmi.png).
 
@@ -94,7 +94,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe launch.py
 ```
 
-Open **http://127.0.0.1:8507**. The app binds to the local computer. All application/model/chart source is Python; Streamlit and Plotly provide their normal browser runtime internally. No separate HTML/CSS/JavaScript source or cloud service is needed.
+Open **http://127.0.0.1:8507**. The app binds to the local computer. The application layout, model, controls and charts are Python. One small JavaScript asset drives only smooth visual fan motion through the supported Dash browser API, as approved for this release. It adds no Python dependency, external asset host or build step.
 
 On macOS or Linux, use `python3 -m venv .venv`, activate it with `source .venv/bin/activate`, install `requirements.txt`, then run `python launch.py`. To run tests, install `requirements-dev.txt`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
 
