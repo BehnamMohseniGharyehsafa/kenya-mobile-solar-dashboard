@@ -41,13 +41,18 @@ def test_persistent_field_view_controls_and_camera():
     view=FieldView(Config(),feed=forecast_fixture())
     try:
         layout=view.layout('integration-session')
-        assert 'cameraPosition' in to_json(layout)
+        encoded_layout=to_json(layout)
+        assert 'cameraPosition' in encoded_layout
+        assert 'setNormals' in encoded_layout  # Smooth static surfaces reach vtk.js.
+        assert 'export-size' in encoded_layout and '3840' in encoded_layout
         window=view.scene.plotter.ren_win
         assert view.scene.module_mesh.n_points==36*view.scene.module_template.n_points
         assert len(view.scene.modules)==1  # One browser draw call contains every panel.
         assert len(view.dynamic_indices)==6
         assert not view.scene.sun.GetUseBounds()
         assert not view.scene.shadow_actor.GetUseBounds()
+        from solar_model.landscape import BARK
+        assert view.scene.plotter.renderer.actors[f'option-landscape-{BARK}'].GetUseBounds()
         view.controller.weather={'gust_ms':0}
         result=view.step('deploy','Live site clock',None,600,6,['shadows','landscape'],'power')
         assert view.controller.target==1
@@ -64,6 +69,10 @@ def test_persistent_field_view_controls_and_camera():
         assert 'cameraPosition' not in patch and 'triggerResetCamera' not in patch
         assert 'userMatrix' in patch
         assert 'polys' not in patch and 'rgb' not in patch
+        assert 'Normals' not in patch  # Quality data never enter the motion stream.
+        actors=list(view.scene.plotter.renderer.actors.values())
+        assert len(actors)<=55
+        assert sum(a.mapper.dataset.triangulate().n_cells for a in actors)<150000
         # A detail-tab click must not wait for an unnecessary plant solve.
         from unittest.mock import patch as mock_patch
         import time
@@ -104,5 +113,13 @@ def test_persistent_field_view_controls_and_camera():
             assert any(a is not no_update for a in result[0].actors)
             assert all(a.visibility==('landscape' in options) for a in view.scene.landscape_actors)
             assert all(a.visibility==('cutaway' not in options) for a in view.scene.cover_actors)
+        # A larger export must not permanently enlarge the renderer used by
+        # normal simulation updates.
+        from PIL import Image
+        from io import BytesIO
+        original_size=tuple(view.scene.plotter.window_size)
+        exported=Image.open(BytesIO(view.scene.png().getvalue()))
+        assert exported.size==(2560,1440)
+        assert tuple(view.scene.plotter.window_size)==original_size
     finally:
         view.close()

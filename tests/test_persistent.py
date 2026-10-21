@@ -164,3 +164,51 @@ def test_animation_http_response_updates_buffers_without_scene_children(monkeypa
         assert len(response.data)<1000
     finally:
         service.close()
+
+
+def test_png_export_honors_selected_resolution_and_camera(monkeypatch):
+    from io import BytesIO
+    import threading
+    import time
+    from dash import html
+    import solar_model.viewer_service as viewer_service
+
+    class StubView:
+        def __init__(self,*args):
+            self.last_used=time.monotonic()
+            self.lock=threading.Lock()
+            self.scene=self
+
+        def layout(self,session):
+            return html.Div('Export transport check')
+
+        def set_camera(self,name):
+            self.camera=name
+
+        def png(self,size):
+            self.size=size
+            return BytesIO(b'PNG export fixture')
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(viewer_service,'FieldView',StubView)
+    service=viewer_service.ViewerService()
+    view=StubView()
+    service.sessions['export-test']=view
+    try:
+        client=service.app.server.test_client()
+        response=client.post('/_dash-update-component',json={
+            'output':'download.data','outputs':{'id':'download','property':'data'},
+            'inputs':[{'id':'export','property':'n_clicks','value':0},
+                {'id':'export-png','property':'n_clicks','value':1}],
+            'state':[{'id':'session','property':'data','value':'export-test'},
+                {'id':'export-size','property':'value','value':'4K'},
+                {'id':'camera','property':'value','value':'Mechanism inspection'}],
+            'changedPropIds':['export-png.n_clicks']})
+        assert response.status_code==200,response.text
+        assert response.get_json()['response']['download']['data']['filename']=='container_scene.png'
+        assert view.size==(3840,2160)
+        assert view.camera=='Mechanism inspection'
+    finally:
+        service.close()

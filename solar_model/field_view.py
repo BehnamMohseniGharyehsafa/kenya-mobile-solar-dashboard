@@ -25,8 +25,8 @@ from .scene import CAMERAS
 from . import charts
 
 WEATHER_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix="site-weather")
-BUTTON={"background":"#223641","color":"#edf2ed","border":"1px solid #4b6269",
-    "borderRadius":"6px","padding":"10px 15px","cursor":"pointer","fontSize":"14px"}
+BUTTON={"background":"#203841","color":"#edf2ed","border":"1px solid #456169",
+    "borderRadius":"7px","padding":"10px 14px","cursor":"pointer","fontSize":"12px"}
 ROW={"display":"flex","flexWrap":"wrap","gap":"8px","alignItems":"center","marginBottom":"10px"}
 
 
@@ -110,41 +110,60 @@ class FieldView:
             identity=f"part-{i}" if actor_slot is None else {"type":"moving-actor","slot":actor_slot}
             mesh_id=f"mesh-{i}" if slot is None else {"type":"moving-mesh","slot":slot}
             state=to_mesh_state(mesh,field)
-            fields=[]
+            arrays={"PointData":[],"CellData":[]}
             if state.get("field"):
                 data=dict(state["field"])
                 location=data.pop("location")
                 # dataRange is encoder metadata rather than a DataArray property.
                 data.pop("dataRange",None)
-                fields=[getattr(dash_vtk,location)([dash_vtk.DataArray(**data)])]
+                arrays[location].append(dash_vtk.DataArray(**data))
+            # VTK's browser bridge does not export surface normals by default.
+            # Preserve them for static smooth surfaces, once at initial load.
+            # Moving meshes intentionally omit them because their vertices move.
+            normals=mesh.GetPointData().GetNormals()
+            if slot is None and normals is not None:
+                from vtkmodules.util.numpy_support import vtk_to_numpy
+                arrays["PointData"].append(dash_vtk.DataArray(name="Normals",registration="setNormals",
+                    numberOfComponents=3,type="Float32Array",
+                    values=b64_encode_numpy(vtk_to_numpy(normals).astype(np.float32,copy=False))))
+            fields=[getattr(dash_vtk,location)(children) for location,children in arrays.items() if children]
             result.append(dash_vtk.GeometryRepresentation(id=identity,actor=actor_state(actor),mapper=mapper,
                 property={"color":list(prop.GetColor()),"opacity":prop.GetOpacity(),
                     "ambient":prop.GetAmbient(),"diffuse":prop.GetDiffuse(),
-                    "specular":prop.GetSpecular(),"lineWidth":prop.GetLineWidth(),
+                    "specular":prop.GetSpecular(),"specularPower":prop.GetSpecularPower(),
+                    "interpolation":prop.GetInterpolation(),"lineWidth":prop.GetLineWidth(),
                     "lighting":bool(prop.GetLighting())},
                 children=[dash_vtk.PolyData(id=mesh_id,**state["mesh"],children=fields)]))
         return result
 
     def layout(self, session):
-        button=lambda name,identity:html.Button(name,id=identity,n_clicks=0,style=BUTTON)
+        button=lambda name,identity:html.Button(name,id=identity,n_clicks=0,style=BUTTON,className="control")
+        c=self.config
+        coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
+            html.Div([html.Div([html.P("FIELD SYSTEM 01 / RENEWABLE ENERGY",className="eyebrow"),
+                html.H2(["Mobile solar",html.Span(" / field lab")])]),
+                html.Div([html.Strong(f"{c.site.upper()} · KENYA"),html.Br(),coordinates],className="site-chip")],
+                className="viewer-heading"),
             html.Div([button("Deploy · open roof & install PV","deploy"),button("Retract · pack & close container","retract"),
-                button("Hold motion","hold"),button("Refresh weather","refresh")],style=ROW),
+                button("Hold motion","hold"),button("Refresh weather","refresh")],className="command-row"),
             html.Div([html.Label("Camera preset"),dcc.Dropdown(id="camera",options=list(CAMERAS),value="Site overview",
-                clearable=False,style={"width":"240px","color":"#142832"}),button("Reset view","reset-view"),
-                button("Run solar-day tour","tour"),button("Use live site clock","live")],style=ROW),
-            html.Div([html.Strong("Drag tool:"),dcc.RadioItems(id="tool",options=["Orbit","Pan","Zoom"],value="Orbit",inline=True,
-                labelStyle={"marginRight":"16px","color":"#e9f0f1"})],style=ROW),
-            html.P("Drag in the scene with the selected tool. Wheel / right-drag also zooms; Shift + left-drag pans. Camera movement is preserved during updates."),
-            html.Strong("TRANSPORT LOCKED",id="status"),html.Small(id="roof-state",style={"marginLeft":"15px"}),
-            html.Progress(id="progress",value=0,max=100,style={"width":"100%","height":"8px"}),
-            html.Div(dash_vtk.View(id="vtk",children=self.representations(),cameraPosition=list(CAMERAS["Site overview"][0]),
+                clearable=False,style={"width":"200px","color":"#142832"}),button("Reset view","reset-view"),
+                button("Run solar-day tour","tour"),button("Use live site clock","live"),
+                html.Div([html.Label("Drag tool"),dcc.RadioItems(id="tool",options=["Orbit","Pan","Zoom"],value="Orbit",inline=True,
+                    labelStyle={"marginRight":"12px","color":"#e9f0f1"})],className="drag-tools")],className="view-toolbar"),
+            html.P("Drag to explore · Wheel / right-drag to zoom · Shift + drag to pan",className="camera-help"),
+            html.Div([html.Strong("TRANSPORT LOCKED",id="status"),html.Small(id="roof-state")],className="mechanism-status"),
+            html.Progress(id="progress",value=0,max=100),
+            html.Div([html.Div("3D SITE VIEW / "+c.site.upper(),className="scene-label"),
+                dash_vtk.View(id="vtk",children=self.representations(),cameraPosition=list(CAMERAS["Site overview"][0]),
                 cameraViewUp=[0,0,1],background=[.57,.67,.72],
                 interactorSettings=interaction_settings(),
                 style={"width":"100%","height":"100%"}),
-                style={"height":"min(66vh,660px)","minHeight":"400px","marginTop":"10px","borderRadius":"8px","overflow":"hidden"}),
-            dcc.Markdown(id="clocks"),dcc.Markdown(id="metrics"),dcc.Markdown(id="weather"),
+                html.Div(f"{c.array_kwp:.1f} kWp PV · {c.battery_kwh:g} kWh LFP · {c.container_ft} ft container",className="scene-note")],
+                className="scene-frame"),
+            dcc.Markdown(id="clocks"),html.Div(id="metrics"),dcc.Markdown(id="weather"),
             html.Details([html.Summary("Clock, animation and view settings"),
                 html.Div([html.Label("Simulation clock"),dcc.Dropdown(id="clock",options=["Live site clock","Accelerated solar day","Manual sun study"],
                     value="Live site clock",clearable=False,style={"width":"245px","color":"#142832"}),
@@ -157,16 +176,21 @@ class FieldView:
                 dcc.Checklist(id="options",options=[{"label":"Geometric sun shadows","value":"shadows"},
                     {"label":"Landscape and vegetation","value":"landscape"},{"label":"Container cutaway","value":"cutaway"}],
                     value=["shadows","landscape"]),
-                html.P("Presentation duration is not a measured installation speed. Manual study time must lie within the downloaded weather window.")]),
+                html.P("Presentation duration is not a measured installation speed. Manual study time must lie within the downloaded weather window.")],className="settings"),
             dcc.Tabs(id="detail-tab",value="power",children=[
                 dcc.Tab(label="Power & thermal state",value="power"),dcc.Tab(label="Mechanism & interlocks",value="mechanism"),
                 dcc.Tab(label="Weather & solar geometry",value="weather"),dcc.Tab(label="Export & performance",value="export")],
                 colors={"border":"#40545c","primary":"#f4b657","background":"#192832"}),
             dcc.Markdown(id="technical"),dcc.Graph(id="plot",config={"displaylogo":False},style={"height":"300px"}),
             html.Div([button("Export technical snapshot JSON","export"),button("Export scene PNG","export-png"),
-                dcc.Download(id="download")],style=ROW),
-        ],style={"position":"absolute","top":0,"left":0,"right":0,"minHeight":"100vh","boxSizing":"border-box",
-            "background":"#101a21","color":"#e9f0f1","padding":"16px","fontFamily":"Segoe UI, Arial, sans-serif","fontSize":"14px"})
+                html.Label("Image resolution"),dcc.Dropdown(id="export-size",value="1440p",clearable=False,
+                    options=[{"label":"Full HD · 1920 × 1080","value":"1080p"},
+                        {"label":"QHD · 2560 × 1440","value":"1440p"},{"label":"4K · 3840 × 2160","value":"4K"}],
+                    style={"width":"220px","color":"#142832","fontSize":"12px"}),
+                dcc.Download(id="download")],className="export-row"),
+            html.P("KENYA / MOBILE SOLAR LAB · Simulated energy and mechanism states. Illustrative landscape; weather provenance and engineering assumptions remain available below the view.",
+                className="viewer-footer"),
+        ],className="viewer-shell")
 
     def step(self, event, mode, manual, speed, duration, options, detail):
         with self.lock:
@@ -278,8 +302,19 @@ class FieldView:
         except (KeyError,ValueError):
             local=now
         clocks=f"**SITE:** {c.stamp:%a %d %b %Y · %H:%M:%S} EAT · **LOCAL:** {local:%H:%M:%S} {self.operator_zone} · **{c.mode}**"
-        pv=f"{m['pv_dc_kw']:.2f} kW" if m["pv_dc_kw"] is not None else "Unavailable"
-        metrics=f"### PV DC: {pv} | SOC: {m['soc']*100:.1f}% | Sun: {m['sun_elevation']:.1f}° / {m['sun_azimuth']:.0f}°\n**{m['state']}** · simulated plant, not hardware telemetry"
+        def card(label,value,unit,caption):
+            return html.Div([html.Span(label,className="metric-label"),
+                html.Strong([value,html.Span(unit,className="metric-unit")],className="metric-value"),
+                html.Span(caption,className="metric-caption")],className="metric-card")
+        pv=f"{m['pv_dc_kw']:.2f}" if m["pv_dc_kw"] is not None else "—"
+        load=f"{m['user_served_kw']:.2f}" if "user_served_kw" in m else "—"
+        battery=f"Battery {m['battery_temp_c']:.1f}°C" if "battery_temp_c" in m else "LFP energy storage"
+        metrics=html.Div([html.Div([
+            card("PV generation",pv,"kW DC",f"{self.config.array_kwp:.1f} kWp installed capacity"),
+            card("Battery state",f"{m['soc']*100:.1f}","% SOC",battery),
+            card("Load served",load,"kW AC",f"{m['unserved_kw']:.2f} kW unserved" if "unserved_kw" in m else "Waiting for site weather"),
+            card("Sun elevation",f"{m['sun_elevation']:.1f}","°",f"Azimuth {m['sun_azimuth']:.0f}° clockwise from north")],className="metric-grid"),
+            html.P(f"{m['state']} · Simulated plant · Initial stored energy is excluded from renewable generation.",className="plant-caption")])
         weather=c.weather_error or ""
         if c.weather:
             w=c.weather

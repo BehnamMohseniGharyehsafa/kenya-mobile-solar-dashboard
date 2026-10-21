@@ -6,6 +6,7 @@ from PIL import Image
 
 from .mechanics import layout,module_geometry,smoothstep,hatch_angle,project_shadow,sun_vector
 from .scene import build_plotter,CAMERAS,PALETTE
+from .landscape import BARK
 
 
 def _module_template(c):
@@ -69,10 +70,15 @@ class InteractiveScene:
         self.light=self.plotter.renderer.lights[0]
         self.update(0,0,90,40,150)
         d=layout(config)
-        for actor in self.plotter.renderer.actors.values():
+        for name,actor in self.plotter.renderer.actors.items():
             bounds=actor.GetBounds()
             if max(abs(bounds[0]),abs(bounds[1]))>d["fence_half_x"]+3 or max(abs(bounds[2]),abs(bounds[3]))>d["fence_half_y"]+3:
                 actor.SetUseBounds(False)
+            # Bark spans each whole tree from ground to crown. Including this
+            # compact layer in camera bounds prevents far-plane cuts leaving
+            # floating crowns after reset/orbit; distant terrain stays excluded.
+            if name==f"option-landscape-{BARK}":
+                actor.SetUseBounds(True)
         # Fit/reset focuses on the installation rather than the distant terrain,
         # projected shadows or the deliberately scaled sun marker.
         for actor in (self.sun,self.shadow_actor,self.box_shadow_actor):
@@ -149,9 +155,13 @@ class InteractiveScene:
         for actor in self.cover_actors:
             actor.visibility=not cutaway
 
-    def png(self):
+    def png(self,size=(2560,1440)):
         output=BytesIO()
-        Image.fromarray(self.plotter.screenshot(return_img=True)).save(output,format="PNG")
+        original_size=tuple(self.plotter.window_size)
+        try:
+            Image.fromarray(self.plotter.screenshot(return_img=True,window_size=size)).save(output,format="PNG")
+        finally:
+            self.plotter.window_size=original_size
         output.seek(0)
         return output
 

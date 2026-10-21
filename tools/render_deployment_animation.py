@@ -26,7 +26,7 @@ if __name__=="__main__":
         position=(1-mix)*np.array(CAMERAS['Container detail'][0])+mix*np.array(CAMERAS['Site overview'][0])
         scene.plotter.camera_position=[position,(0,0,1.7),(0,0,1)]
         scene.plotter.add_text(f"{phase(p)} / {p*100:.0f}% DEPLOYED",name="sequence-label",font_size=12)
-        images.append(Image.open(scene.png()).convert("RGB"))
+        images.append(Image.open(scene.png(size=(960,540))).convert("RGB"))
         if i%8==0:
             print(f"Rendered {i+1}/{len(path)}",flush=True)
     images[0].save(output/"deployment-sequence.gif",save_all=True,append_images=images[1:],duration=170,loop=0,optimize=False)

@@ -31,7 +31,8 @@ def benchmark(frames=60, profile=None):
     arguments=(c.mode,stamp.strftime("%Y-%m-%d %H:%M"),600,6,["shadows","landscape"],"power")
     profiler=cProfile.Profile() if profile else None
     try:
-        view.layout("benchmark")
+        initial_layout=view.layout("benchmark")
+        initial_mib=len(to_json(initial_layout).encode())/1024**2
         view.step("clock",*arguments)
         c.weather["gust_ms"]=0
         view.step("deploy",*arguments)
@@ -56,6 +57,8 @@ def benchmark(frames=60, profile=None):
         return {"frames":frames,"median_python_and_encoding_ms":float(np.median(times)),
             "p95_python_and_encoding_ms":float(np.percentile(times,95)),
             "median_geometry_kib":float(np.median(sizes)/1024),
+            "actors":len(view.actors),"triangles":sum(a.mapper.dataset.triangulate().n_cells for a in view.actors),
+            "initial_layout_mib":initial_mib,
             "scope":"Animation update plus geometry JSON encoding; excludes plant solves, browser drawing and network."}
     finally:
         view.close()

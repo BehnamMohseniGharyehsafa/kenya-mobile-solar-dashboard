@@ -13,6 +13,7 @@ import pyvista as pv
 from scipy.spatial import ConvexHull
 
 from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector, hatch_angle
+from .landscape import terrain as _terrain, vegetation, FOLIAGE, BARK, STONE
 
 PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
@@ -53,44 +54,6 @@ class Geometry:
     def merged(self):
         return {color:pv.merge(parts,merge_points=False) for color,parts in self.parts.items()}, {
             color:pv.merge(parts,merge_points=False) for color,parts in self.wires.items()}
-
-
-def _tree(g, x, y, size, rng, arid=False, ground=0):
-    trunk = "#5c4b35"
-    g.tube((x,y,ground),(x+.16*size,y,ground+1.6*size),.095*size,trunk)
-    for dx,dy in [(-.75,.15),(.7,.2),(.1,-.6)]:
-        g.tube((x,y,ground+.9*size),(x+dx*size,y+dy*size,ground+1.8*size),.045*size,trunk)
-    for _ in range(5):
-        center=(x+rng.uniform(-.7,.7)*size,y+rng.uniform(-.6,.6)*size,ground+(1.8+rng.uniform(0,.35))*size)
-        color=rng.choice(["#617a3f","#748944","#526b3b"] if arid else ["#416e49","#5e8051","#3c6543"])
-        g.ellipsoid(center,(1.05*size,.85*size,.40*size),color)
-
-
-def _height(x,y,d):
-    outside=np.maximum(np.maximum(np.abs(x)-d["fence_half_x"]-2,np.abs(y)-d["fence_half_y"]-2),0)
-    hills=7*np.exp(-((x+27)**2+(y-48)**2)/550)+10*np.exp(-((x-35)**2+(y-64)**2)/750)
-    return (.2*np.sin(x*.18)*np.cos(y*.20)+hills)*np.clip(outside/10,0,1)-.025
-
-
-def _terrain(c,d):
-    hx,hy=d["fence_half_x"],d["fence_half_y"]
-    x=np.linspace(-65,65,91)
-    y=np.linspace(-60,85,101)
-    xx,yy=np.meshgrid(x,y,indexing="ij")
-    zz=_height(xx,yy,d)
-    terrain=pv.StructuredGrid(xx,yy,zz).extract_surface(algorithm="dataset_surface").triangulate()
-    points=terrain.points
-    arid=c.altitude_m < 900 and c.site not in ("Mombasa","Kisumu")
-    rng=np.random.default_rng(19)
-    base=np.array([147,111,79] if arid else [109,124,83])
-    noise=rng.uniform(-11,11,(len(points),1))
-    color=base+noise+np.sin(points[:,0:1]*.28)*np.array([11,4,-3])
-    inside=(np.abs(points[:,0])<hx)&(np.abs(points[:,1])<hy)
-    color[inside]=np.array([152,140,112])+noise[inside]
-    road=(np.abs(points[:,0]-1)<2)&(points[:,1]<-hy+1)
-    color[road]=np.array([159,133,100])+noise[road]
-    terrain["terrain_rgb"]=np.clip(color,0,255).astype(np.uint8)
-    return terrain,arid
 
 
 def _fence(g,d):
@@ -184,23 +147,7 @@ def cover_geometry(c,detail=True):
 @lru_cache(maxsize=12)
 def landscape_geometry(c):
     """Vegetation/rocks are independent of the permanent installation geometry."""
-    g=Geometry()
-    d=layout(c)
-    arid=c.altitude_m < 900 and c.site not in ("Mombasa","Kisumu")
-    rng=np.random.default_rng(22)
-    for i in range(34):
-        x=rng.uniform(-38,38)
-        y=rng.uniform(-28,45)
-        if abs(x)<d["fence_half_x"]+2 and abs(y)<d["fence_half_y"]+2:
-            continue
-        _tree(g,x,y,rng.uniform(1.1,2.0),rng,arid,float(_height(x,y,d)))
-    for i in range(45):
-        x,y=rng.uniform(-35,35),rng.uniform(-30,45)
-        if abs(x)<d["fence_half_x"]+1 and abs(y)<d["fence_half_y"]+1:
-            continue
-        size=rng.uniform(.12,.55)
-        g.ellipsoid((x,y,float(_height(x,y,d))+.1),(size*1.4,size,size*.55),rng.choice(["#a99b81","#857b66","#c2aa88"]),10)
-    return g.merged()
+    return vegetation(c)
 
 
 @lru_cache(maxsize=12)
@@ -349,12 +296,19 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
         for color,mesh in groups[0].items():
             is_shadow=color in ("#3b4237","#454a3d")
             emissive=color in ("#ffe4a0","#ffdda2")
-            plotter.add_mesh(mesh,color=color,show_edges=False,
+            field=mesh.active_scalars_name
+            colored=field in ("foliage_rgb","grass_rgb","stone_rgb","contact_rgba")
+            appearance={"scalars":field,"rgb":True} if colored else {"color":color}
+            contact=field=="contact_rgba"
+            grass=field=="grass_rgb"
+            plotter.add_mesh(mesh,**appearance,show_scalar_bar=False,show_edges=False,
                 name=f"{prefix}-{color}" if prefix else None,
-                ambient=1 if is_shadow or emissive else .43 if night else .23,
-                diffuse=0 if is_shadow else .8,specular=.23 if color in (PALETTE["pv"],PALETTE["steel"]) else .06,
+                ambient=1 if is_shadow or emissive or contact or grass else .46 if color==FOLIAGE else .43 if night else .28,
+                lighting=not (contact or grass),
+                diffuse=0 if is_shadow or contact or grass else .54 if color==FOLIAGE else .75,
+                specular=.23 if color in (PALETTE["pv"],PALETTE["steel"]) else 0 if color==FOLIAGE else .03,
                 specular_power=26,opacity=.46 if is_shadow else 1,
-                smooth_shading=color in ("#416e49","#5e8051","#3c6543","#617a3f","#748944","#526b3b"))
+                smooth_shading=color in (FOLIAGE,BARK,STONE))
             if prefix:
                 plotter.renderer.actors[f"{prefix}-{color}"].visibility=visible
         for color,mesh in groups[1].items():

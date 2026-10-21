@@ -2,12 +2,16 @@
 
 A Python-only interactive dashboard and detailed energy/thermal/control model for deployable, container-based PV in Kenya. Nairobi is the default site. The main workspace shows a detailed 3D container compound with one-command deployment/retraction, current model weather, a clock-driven sun and analytical shadows. Historical JRC PVGIS weather remains bundled for the annual engineering studies.
 
-![Deployed container compound: procedural landscape and test-sun geometry](assets/screenshots/site-deployed.png)
+![Enhanced container workspace: interactive landscape and live model telemetry](assets/screenshots/dashboard-enhanced.png)
+
+Example desktop workspace; values change with site time and weather. [Open the 1440p concept-site render with a fixed test sun](assets/screenshots/site-deployed.png).
 
 ## Container field lab
 
 - **Deploy** opens the roof, lifts the panel cassettes, unfolds the arrays, engages supports and **closes the roof again**. **Retract** isolates PV, opens the roof for repacking, then closes it with all panels inside.
 - Inspect the landscape, chain-link fence, gate, concrete base, all PV modules, container corrugations, battery racks, cable trays, converter cabinet, cooling grille and weather mast.
+- Explore the richer highland grass and branched, clustered tree crowns with smooth surface shading. Vegetation stays batched in five static materials; landscape/cutaway switches reuse loaded geometry.
+- Read the redesigned PV, storage, load and solar-position cards, then export a Full HD, 1440p or 4K scene image without increasing the normal animation resolution.
 - Use the live Nairobi clock, an accelerated solar-day tour or a manual study time. Day/night lighting and shadow geometry follow the displayed sun position.
 - Fetch [Open-Meteo](https://open-meteo.com/en/docs) model weather with visible timestamps and freshness. The current-weather scene requires internet access on its first use; annual cached studies work offline.
 - The main view is an interactive, persistent WebGL scene: choose Orbit, Pan or Zoom and drag, or use Shift + left-drag to pan and wheel/right-drag to zoom. Camera presets and Reset view are also available. Camera position persists while the simulation runs; inspection no longer requires pausing updates.

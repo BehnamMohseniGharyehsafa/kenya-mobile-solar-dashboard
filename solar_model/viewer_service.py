@@ -14,6 +14,7 @@ from werkzeug.serving import make_server,WSGIRequestHandler
 from .config import Config
 from .field_view import FieldView,interaction_settings
 from .scene import CAMERAS
+from .presentation import index_template
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -29,6 +30,7 @@ class ViewerService:
         self.lock=threading.Lock()
         self.app=Dash(__name__,title="Kenya · interactive container",update_title=None,
             suppress_callback_exceptions=True)
+        self.app.index_string=index_template()
         self.app.layout=self._layout
         self._callbacks()
         self.server=make_server("127.0.0.1",0,self.app.server,threaded=True,request_handler=QuietHandler)
@@ -104,14 +106,16 @@ class ViewerService:
             return interaction_settings(tool)
 
         @self.app.callback(Output("download","data"),Input("export","n_clicks"),Input("export-png","n_clicks"),
-            State("session","data"),prevent_initial_call=True)
-        def export(clicks,png_clicks,session):
+            State("session","data"),State("export-size","value"),State("camera","value"),prevent_initial_call=True)
+        def export(clicks,png_clicks,session,size,camera):
             view=self.sessions.get(session)
             if view is None:
                 return no_update
             with view.lock:
                 if ctx.triggered_id=="export-png":
-                    return dcc.send_bytes(view.scene.png().getvalue(),"container_scene.png")
+                    sizes={"1080p":(1920,1080),"1440p":(2560,1440),"4K":(3840,2160)}
+                    view.scene.set_camera(camera if camera in CAMERAS else "Site overview")
+                    return dcc.send_bytes(view.scene.png(sizes.get(size,sizes["1440p"])).getvalue(),"container_scene.png")
                 return dcc.send_string(json.dumps(view.controller.snapshot(),indent=2,default=str),"container_snapshot.json")
 
     def close(self):
