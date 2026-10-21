@@ -2,6 +2,26 @@
 
 Date: 21 October 2026. Runtime: Python 3.13.7; pvlib 0.16.1; Streamlit 1.66.0; Dash 4.4.1; Dash VTK 0.0.9. Model and app layout/controls are Python; the approved fan-only browser helper is JavaScript.
 
+## Developer attribution and public resource safeguards
+
+The complete security run passed **85 tests in 21.53 s**. A subsequent
+manual-date regression also passed in the 26-check equipment/security subset;
+the final 14-check security request suite and real local cloud smoke passed. Added HTTP checks cover
+signed/Secure/HttpOnly/SameSite cookies, host and origin rejection, malformed and
+oversized JSON, unknown callbacks and response targets, browser-owned simulation
+IDs, refresh reuse, bounded rate-limiter storage, concurrent-work rejection while
+health remains available, and rejecting forged public 4K requests. Actual browser
+checks confirmed the three-line developer attribution, normal deployment,
+restoration of the deployed model after refresh and no CSP console errors.
+
+An exact-version PyPI advisory lookup covered 110 installed/cloud package entries.
+Only the installed Pillow 12.3.0 was flagged (eight advisories, fixed in 13.0.0).
+The cloud requirements now omit unused Streamlit and pin Pillow 13.0.0; the local
+Streamlit dependency bound remains compatible. The public app does not decode
+uploaded images/PDFs. Advisory lookup is not proof of exploitability or absence
+of unknown flaws. The cloud CI smoke also exercises a real Full HD PNG export
+and the official PyPA audit checks the resolved cloud requirements.
+
 ## Automated verification
 
 The smooth-fan update removes the former 100 ms server callback. New actual

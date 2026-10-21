@@ -18,9 +18,11 @@ from solar_model.weather import load_bundled, fetch_pvgis, demo_weather, parse_w
 from solar_model.simulation import simulate, compare_trackers
 from solar_model.pv import string_checks
 from solar_model import charts
+from solar_model.branding import DEVELOPER,QUALIFICATION,EMAIL
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="Kenya | Mobile solar lab", page_icon="☀️", layout="wide",initial_sidebar_state="collapsed")
+st.markdown(f"**Developer: {DEVELOPER}**  \n{QUALIFICATION}  \n[{EMAIL}](mailto:{EMAIL})")
 
 
 @st.cache_data(show_spinner=False)

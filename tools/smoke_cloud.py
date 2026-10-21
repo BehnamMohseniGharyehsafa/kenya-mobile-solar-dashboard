@@ -60,14 +60,41 @@ def smoke(url):
         "outputs":outputs,"inputs":inputs,"state":state,"changedPropIds":["tick.n_intervals"]},timeout=120)
     response.raise_for_status()
     assert "status" in response.json()["response"]
-    second=client.get(url+"/_dash-layout",timeout=120)
+    refreshed=client.get(url+"/_dash-layout",timeout=120)
+    refreshed.raise_for_status()
+    refreshed_session=next(n["props"]["data"] for n in components(refreshed.json()) if n["props"].get("id")=="session")
+    assert refreshed_session==props["session"]["data"], "Refreshing allocated another scene."
+    other=requests.Session()
+    other.get(url+"/",timeout=15).raise_for_status()
+    second=other.get(url+"/_dash-layout",timeout=120)
     second.raise_for_status()
     second_nodes=list(components(second.json()))
     second_session=next(n["props"]["data"] for n in second_nodes if n["props"].get("id")=="session")
     assert second_session!=props["session"]["data"], "Visitors shared a simulation session."
-    third=client.get(url+"/_dash-layout",timeout=30)
+    visitor=requests.Session()
+    visitor.get(url+"/",timeout=15).raise_for_status()
+    third=visitor.get(url+"/_dash-layout",timeout=30)
     third.raise_for_status()
     assert "currently full" in third.text, "The cloud session cap was not enforced."
+    forbidden=other.post(url+"/_dash-update-component",json={"output":callback["output"],
+        "outputs":outputs,"inputs":inputs,"state":state,"changedPropIds":["tick.n_intervals"]},timeout=30)
+    assert forbidden.status_code==403, "Another browser could operate the first browser's simulation."
+    # Exercise the public, memory-bounded PNG path with the cloud Pillow pin.
+    from io import BytesIO
+    from PIL import Image
+    download=client.post(url+"/_dash-update-component",json={"output":"download.data",
+        "outputs":{"id":"download","property":"data"},
+        "inputs":[{"id":"export","property":"n_clicks","value":0},{"id":"export-png","property":"n_clicks","value":1}],
+        "state":[{"id":"session","property":"data","value":props["session"]["data"]},
+            {"id":"export-size","property":"value","value":"1080p"},
+            {"id":"camera","property":"value","value":"Control panel & fan"},
+            {"id":"fan-rotor","property":"actor","value":{}}],
+        "changedPropIds":["export-png.n_clicks"]},timeout=120)
+    download.raise_for_status()
+    import base64
+    payload=download.json()["response"]["download"]["data"]
+    image=Image.open(BytesIO(base64.b64decode(payload["content"])))
+    assert image.size==(1920,1080) and image.format=="PNG"
     print(f"Cloud smoke passed: real 3D layout and plant callback; {time.monotonic()-started:.2f} s initial load.")
 
 

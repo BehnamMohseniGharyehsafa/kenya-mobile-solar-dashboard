@@ -121,6 +121,19 @@ def test_fan_indication_requires_delivered_cooling_and_unknown_values_are_visibl
     assert display_colors(lines).shape==(160,3)
 
 
+def test_invalid_manual_date_retains_a_valid_clock_and_live_updates_can_continue():
+    view=FieldView(Config(),feed=forecast_fixture())
+    try:
+        for text in ("", "9999-10-21 12:00", "not a date"):
+            view.step("manual","Manual sun study",text,600,6,["landscape","shadows"],"power")
+            assert 2000<=view.controller.manual.year<=2100
+            assert view.controller.stamp is not None
+        view.step("clock","Live site clock","",600,6,["landscape","shadows"],"power")
+        assert view.controller.mode=="Live site clock" and view.controller.weather is not None
+    finally:
+        view.close()
+
+
 def test_fan_animation_is_local_and_asset_is_served_without_a_session():
     from solar_model.viewer_service import ViewerService
     service=ViewerService(start_server=False)

@@ -8,7 +8,7 @@ import uuid
 from urllib.parse import parse_qs,urlparse
 
 from dash import Dash,Input,Output,State,ALL,ctx,no_update,dcc,html,set_props,ClientsideFunction
-from flask import request,has_request_context
+from flask import request,has_request_context,g
 from werkzeug.serving import make_server,WSGIRequestHandler
 
 from .config import Config
@@ -16,6 +16,7 @@ from .field_view import FieldView,interaction_settings
 from .scene import CAMERAS,camera_pose
 from .presentation import index_template
 from .equipment import cooling_rpm
+from .branding import developer_banner
 
 
 class QuietHandler(WSGIRequestHandler):
@@ -25,7 +26,7 @@ class QuietHandler(WSGIRequestHandler):
 
 class ViewerService:
     def __init__(self, *, start_server=True, default_design=None,
-                 title="Kenya · interactive container", max_sessions=12, idle_seconds=1800):
+                 title="Kenya · interactive container", max_sessions=12, idle_seconds=1800,flask_server=None):
         self.default_design=default_design
         self.title=title
         self.max_sessions=max_sessions
@@ -33,9 +34,10 @@ class ViewerService:
         self.routes={}
         self.keys={}
         self.sessions={}
+        self.owners={}
         self.lock=threading.Lock()
         self.app=Dash(__name__,title=title,update_title=None,
-            suppress_callback_exceptions=True)
+            suppress_callback_exceptions=True,server=flask_server if flask_server is not None else True)
         self.app.index_string=index_template()
         self.app.layout=self._layout
         self._callbacks()
@@ -72,9 +74,31 @@ class ViewerService:
             # Bound retained sessions and release abandoned VTK resources.
             expired=[k for k,v in self.sessions.items() if time.monotonic()-v.last_used>self.idle_seconds]
             for key in expired:
-                self.sessions.pop(key).close()
+                view=self.sessions[key]
+                gate=getattr(view,"request_gate",None)
+                if gate is not None and not gate.acquire(blocking=False):
+                    continue
+                try:
+                    self.sessions.pop(key).close()
+                    self.owners.pop(key,None)
+                finally:
+                    if gate is not None:
+                        gate.release()
+            owner=getattr(g,"viewer_owner",None) if self.default_design else None
+            if owner is not None:
+                existing=next((k for k in self.sessions if self.owners.get(k)==owner),None)
+                if existing:
+                    view=self.sessions[existing]
+                    if hasattr(view,"sent_values"):
+                        # A refresh reuses the browser's scene, but its fresh
+                        # DOM needs the initial telemetry and chart again.
+                        with view.lock:
+                            view.sent_values.clear()
+                            view.last_physics=view.last_chart=float("-inf")
+                            return view.layout(existing)
+                    return view.layout(existing)
             if self.default_design and len(self.sessions)>=self.max_sessions:
-                return html.Div([html.H2(self.title),html.P(
+                return html.Div([developer_banner(),html.H2(self.title),html.P(
                     "The free demonstration server is currently full. Close unused simulation tabs "
                     "and try refreshing in a few minutes.")],className="viewer-shell")
             while len(self.sessions)>=self.max_sessions:
@@ -84,7 +108,11 @@ class ViewerService:
             view=FieldView(*settings)
             if self.default_design:
                 view.public_title=self.title
+                view.public_demo=True
+                view.request_gate=threading.BoundedSemaphore(1)
             self.sessions[session]=view
+            if owner is not None:
+                self.owners[session]=owner
         return view.layout(session)
 
     def _callbacks(self):
@@ -169,7 +197,8 @@ class ViewerService:
                         pose=np.asarray(matrix,dtype=float).reshape(4,4,order="F")
                         if np.isfinite(pose).all():
                             view.scene.fan_actor.user_matrix=pose
-                    return dcc.send_bytes(view.scene.png(sizes.get(size,sizes["1440p"])).getvalue(),"container_scene.png")
+                    resolution=sizes["1080p"] if getattr(view,"public_demo",False) else sizes.get(size,sizes["1440p"])
+                    return dcc.send_bytes(view.scene.png(resolution).getvalue(),"container_scene.png")
                 snapshot=view.controller.snapshot()
                 snapshot["instrumentation"]={"fan_demand_rpm_assumed":cooling_rpm(view.controller.model),
                     "visual_rotor_rpm":12,"fan_basis":"Delivered HVAC power and cooling mode; not a measured or OEM fan curve",
@@ -185,3 +214,4 @@ class ViewerService:
         for view in self.sessions.values():
             view.close()
         self.sessions.clear()
+        self.owners.clear()

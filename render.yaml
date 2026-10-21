@@ -14,4 +14,4 @@ services:
       - key: PV_WEATHER_CACHE_DIR
         value: /tmp/solar-weather
       - key: PV_UI_REVISION
-        value: smooth-fan-v3
+        value: credits-security-v1

@@ -7,6 +7,10 @@ button, input { font:inherit; }
 button:focus-visible, input:focus-visible { outline:2px solid #f2c16b; outline-offset:3px; }
 .viewer-shell { max-width:1800px; margin:0 auto; padding:16px 24px 28px;
  background:radial-gradient(ellipse at 12% 0%,#19343a 0,transparent 45%),#0e1a22; min-height:100vh; }
+.developer-banner { display:flex; flex-direction:column; gap:3px; padding:0 0 12px; margin-bottom:13px;
+ border-bottom:1px solid #345057; font-size:12px; line-height:1.5; color:#a9c7c2; }
+.developer-banner strong { color:#edf4e9; font-size:14px; font-weight:600; }
+.developer-banner a { width:fit-content; overflow-wrap:anywhere; }
 .viewer-heading { display:flex; justify-content:space-between; gap:18px; align-items:center; margin-bottom:12px; }
 .eyebrow { color:#8bb4b0; font-size:10px; font-weight:700; letter-spacing:2.4px; margin:0 0 6px; }
 .viewer-heading h2 { font-size:25px; font-weight:600; letter-spacing:-.8px; margin:0; color:#f0f5ed; }

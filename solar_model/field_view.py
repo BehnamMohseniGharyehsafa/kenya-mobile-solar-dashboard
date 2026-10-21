@@ -24,6 +24,7 @@ from .mechanics import phase, hatch_angle, layout
 from .scene import CAMERAS
 from . import charts
 from .equipment import inspector,cooling_rpm,display_colors,display_lines,fan_centre
+from .branding import developer_banner
 
 WEATHER_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix="site-weather")
 BUTTON={"background":"#203841","color":"#edf2ed","border":"1px solid #456169",
@@ -165,6 +166,8 @@ class FieldView:
     @staticmethod
     def pick_action(info):
         info=info or {}
+        if not isinstance(info,dict) or not isinstance(info.get("representationId"),str):
+            return "pick"
         # A generous, non-overlapping target around each small physical cap.
         # The readable HMI supplies full-size keyboard/touch controls as well.
         point=info.get("worldPosition")
@@ -188,6 +191,7 @@ class FieldView:
         self.scene.display_mesh.cell_data["screen_rgb"]=display_colors(display_lines(m,cooling_rpm(m)))
         coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
+            developer_banner(),
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
             dcc.Store(id="fan-command",data=self.fan_command(False)),
             dcc.Store(id="fan-runtime"),
@@ -235,8 +239,9 @@ class FieldView:
                 colors={"border":"#40545c","primary":"#f4b657","background":"#192832"}),
             dcc.Markdown(id="technical"),dcc.Graph(id="plot",config={"displaylogo":False},style={"height":"300px"}),
             html.Div([button("Export technical snapshot JSON","export"),button("Export scene PNG","export-png"),
-                html.Label("Image resolution"),dcc.Dropdown(id="export-size",value="1440p",clearable=False,
-                    options=[{"label":"Full HD · 1920 × 1080","value":"1080p"},
+                html.Label("Image resolution"),dcc.Dropdown(id="export-size",value="1080p" if getattr(self,"public_demo",False) else "1440p",clearable=False,
+                    options=[{"label":"Full HD · 1920 × 1080","value":"1080p"}] if getattr(self,"public_demo",False) else [
+                        {"label":"Full HD · 1920 × 1080","value":"1080p"},
                         {"label":"QHD · 2560 × 1440","value":"1440p"},{"label":"4K · 3840 × 2160","value":"4K"}],
                     style={"width":"220px","color":"#142832","fontSize":"12px"}),
                 dcc.Download(id="download")],className="export-row"),
@@ -295,7 +300,10 @@ class FieldView:
             force=True
         if mode=="Manual sun study":
             try:
-                selected=pd.Timestamp(manual).tz_localize(c.config.timezone)
+                selected=pd.Timestamp(manual)
+                if pd.isna(selected) or not 2000<=selected.year<=2100:
+                    raise ValueError("Study date is outside the supported calendar.")
+                selected=selected.tz_localize(c.config.timezone)
                 if selected!=c.manual:
                     c.manual=selected
                     c.reset_energy()

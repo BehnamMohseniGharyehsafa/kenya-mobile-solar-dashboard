@@ -50,10 +50,12 @@ def test_public_layout_loads_nairobi_and_bounds_active_sessions(cloud):
     view=next(iter(service.sessions.values()))
     assert view.settings[0].site=="Nairobi"
     assert view.settings[1]=="Africa/Nairobi"
-    assert b"currently full" in client.get("/_dash-layout").data
+    assert first.data==client.get("/_dash-layout").data  # Refresh reuses this browser's allocation.
+    other=app.test_client()
+    assert b"currently full" in other.get("/_dash-layout").data
     assert not view.closed and len(service.sessions)==1
     view.last_used-=181
-    assert b"session-id" in client.get("/_dash-layout").data
+    assert b"session-id" in other.get("/_dash-layout").data
     assert view.closed and len(service.sessions)==1
 
 
