@@ -114,11 +114,33 @@ def test_display_updates_only_small_color_array_and_button_picks_are_explicit():
 def test_fan_indication_requires_delivered_cooling_and_unknown_values_are_visible():
     assert cooling_rpm({"cooling_state":"COMPRESSOR","cooling_kw":1.2})==900
     assert cooling_rpm({"cooling_state":"FREE COOLING","cooling_kw":.2})==600
+    assert cooling_rpm({"cooling_state":"CIRCULATION","cooling_kw":.09})==600
+    assert cooling_rpm({"cooling_state":"CIRCULATION","cooling_kw":0})==0
     assert cooling_rpm({"cooling_state":"COMPRESSOR","cooling_kw":0})==0
     assert cooling_rpm({"cooling_state":"FAULT","cooling_kw":1.2})==0
     lines=display_lines({"pv_dc_kw":None,"soc":.5},0)
     assert lines[0]=="-----" and lines[2]=="-----"
     assert display_colors(lines).shape==(160,3)
+
+
+def test_powered_circulation_reaches_the_rotor_and_hmi_without_a_heat_demand():
+    view=FieldView(Config(),feed=forecast_fixture())
+    try:
+        view.update_instruments()
+        model=view.controller.model
+        changes=view.take_instrument_changes()
+        assert model["cooling_state"]=="CIRCULATION"
+        assert model["cooling_kw"]==pytest.approx(view.config.fan_kw)
+        assert changes["fan-command"]["data"]["visual_rpm"]>0
+        assert changes["hmi-cooling"]["children"]=="Cooling · CIRCULATION"
+        assert "600 rpm" in changes["hmi-rpm"]["children"]
+        # Cooling and circulation retain their independent protective supply.
+        view.controller.emergency_stop()
+        view.controller.step_plant(view.controller.stamp)
+        view.update_instruments()
+        assert view.fan_command(bool(cooling_rpm(view.controller.model)))["visual_rpm"]>0
+    finally:
+        view.close()
 
 
 def test_invalid_manual_date_retains_a_valid_clock_and_live_updates_can_continue():

@@ -41,9 +41,10 @@ The initial display mesh is seeded with current digits before serialization.
 PNG export receives the browser's current pose only when requested.
 
 Visual rotation is slowed to 12 rpm for inspection: displayed 900 rpm compressor
-and 600 rpm free-cooling demands remain assumed indications, not measurements or
+and 600 rpm circulation/free-cooling demands remain assumed indications, not measurements or
 manufacturer curves. Ramping is a presentation effect, not a fan-inertia or
-motor-dynamics model. No extra fan energy is added to the aggregate HVAC load.
+motor-dynamics model. The animation itself adds no electrical demand; the physical
+fan's demand is counted once in the aggregate HVAC load described below.
 JSON snapshots retain these assumptions and operator/interlock states.
 
 The equipment camera uses a single invisible, non-pickable bounds proxy; other
@@ -155,13 +156,15 @@ A protected tracker/controller UPS is assumed available for mechanical movement.
 
 Two dynamic nodes are used: room/enclosure effective mass, and battery mass. The room mass includes an assumed effective contribution of the internal fit-out; air-only thermal capacity would underrepresent inertia. Outer dimensions estimate envelope area and volume; floor heat transfer is simplified as exposure to ambient, with no soil node.
 
-`C_room × dT_room/dt = UA_shell(T_air−T_room) + UA_infiltration(T_air−T_room) + Q_solar + Q_internal + Q_inverter + Q_controls + UA_battery(T_battery−T_room) − Q_compressor − Q_ventilation`.
+`C_room × dT_room/dt = UA_shell(T_air−T_room) + UA_infiltration(T_air−T_room) + Q_solar + Q_internal + Q_inverter + Q_controls + Q_fan + UA_battery(T_battery−T_room) − Q_compressor − Q_ventilation`.
 
 `C_battery × dT_battery/dt = Q_battery_losses − UA_battery(T_battery−T_room)`.
 
 Units are kW for thermal flux and kJ/K for capacitance; integration uses seconds. Explicit thermal substeps are at most 30 s. The battery heat source is the same conversion inefficiency counted electrically; no second arbitrary I²R source is added. These losses lump cell and battery-converter effects at the battery node. A more detailed implementation would locate converter heat in its actual compartment and use measured rack resistance/efficiency maps.
 
 Solar gain is a reduced sol-air approximation with assumed exterior heat-transfer coefficient 15 W/m²K. Roof area receives the selected shade fraction; 25% of wall area represents an effective solar-exposed wall contribution. Shell U-value and solar absorptivity scale admitted heat. It is a predesign approximation, not a building energy simulation. The independent shade canopy is a design assumption, separate from the detached tracking tables shown in the schematic.
+
+As of 1 November 2026, Hybrid HVAC and Ventilation only request continuous circulation whenever power is available, including below the cooling setpoint. The default fan demand is 0.09 kW, counted alongside controls and compressor demand in dispatch. Its delivered electricity becomes enclosure heat under the assumed indoor motor placement. Circulation alone removes no heat. Passive mode and HVAC failure request no fan power; zero delivered power stops the rotor and HMI indicator. Protective circulation remains independent of the mechanism E-stop.
 
 Uncontrolled infiltration is based on air changes per hour. Controlled ventilation uses `rho × cp × airflow × (T_room−T_air)`. Free cooling is enabled when outdoor air is at least 2°C cooler, room is above setpoint and outdoor RH is below 85%. The humidity criterion is only a simple eligibility check; the model does not calculate dew point, moisture balance, condensation or latent cooling loads.
 
@@ -178,7 +181,7 @@ The model runs slow supervisory control at 5, 15 or 60 min. It does not simulate
 | Implemented state machine | Normal action | Fault/safety response |
 |---|---|---|
 | Tracker | Ephemeris, mechanical limits, backtracking, deadband | Gust/sensor stow with recovery latch; jam holds last position |
-| Cooling | Passive → free cooling or compressor | Failure injection removes ventilation/compressor cooling |
+| Cooling | Powered circulation → free cooling or compressor; optional passive mode | Failure injection removes circulation/ventilation/compressor cooling |
 | Storage | PV surplus charging, deficit discharging | SOC reserve; temperature power derate; hot/BMS isolation |
 | Inverter | AC load service within input/output limits | Room-temperature derating and unmet-load reporting |
 | Energy manager | Auxiliaries → critical → discretionary | Shed discretionary load below reserve; report all remaining deficits |

@@ -138,6 +138,44 @@ def test_hvac_failure_is_applied(example):
     assert (r.cooling_state[r.fault_active] == "FAULT").all()
 
 
+@pytest.mark.parametrize("mode", ["Hybrid HVAC", "Ventilation only", "Passive"])
+def test_circulation_uses_power_below_the_cooling_setpoint(mode):
+    c=replace(Config(),cooling_mode=mode)
+    index=pd.date_range("2026-01-01 12:00",periods=1,tz=c.timezone)
+    weather=pd.DataFrame({"temp_air":23.,"ghi":0.,"relative_humidity":50.,"fault_active":False},index=index)
+    pv=pd.DataFrame({"pv_dc_kw":0.,"tracker_kw":0.},index=index)
+    result=simulate_dispatch(weather,pv,c,dt_hours=1/3600).iloc[0]
+    active=mode!="Passive"
+    assert result.cooling_state==("CIRCULATION" if active else "PASSIVE")
+    assert result.cooling_kw==pytest.approx(c.fan_kw if active else 0)
+    assert result.cooling_thermal_kw==0  # Recirculation does not invent heat removal.
+    assert result.dc_balance_residual_kw==pytest.approx(0,abs=1e-10)
+    assert result.battery_balance_residual_kwh==pytest.approx(0,abs=1e-10)
+    empty=simulate_dispatch(weather,pv,replace(c,soc_initial=c.soc_min),dt_hours=1/3600).iloc[0]
+    assert empty.cooling_kw==0
+    assert empty.aux_served_kw==0
+
+
+def test_circulation_does_not_replace_thermostat_cooling():
+    c=Config()
+    index=pd.date_range("2026-01-01 12:00",periods=1,tz=c.timezone)
+    weather=pd.DataFrame({"temp_air":36.,"ghi":0.,"relative_humidity":50.,"fault_active":False},index=index)
+    pv=pd.DataFrame({"pv_dc_kw":0.,"tracker_kw":0.},index=index)
+    hot=simulate_dispatch(weather,pv,c,dt_hours=1/3600).iloc[0]
+    cop=c.cooling_cop*(1-.015)
+    capacity=c.cooling_capacity_kw*(1-.015)
+    assert hot.cooling_state=="COMPRESSOR"
+    assert hot.cooling_kw==pytest.approx(capacity/cop+c.fan_kw)
+    assert hot.cooling_thermal_kw==pytest.approx(capacity)
+    initial={"energy":c.battery_kwh*c.soc_initial,"green":0.,"room":30.,"battery":30.,
+        "hvac_on":True,"battery_trip":False,"shed_latch":False}
+    weather.temp_air=23.
+    free=simulate_dispatch(weather,pv,c,initial_state=initial,dt_hours=1/3600).iloc[0]
+    assert free.cooling_state=="FREE COOLING"
+    assert free.cooling_kw==pytest.approx(c.fan_kw)
+    assert free.cooling_thermal_kw>0
+
+
 def test_voltage_limit_blocks_incompatible_string(example):
     c,w,m = example
     c = replace(c,mppt_min_v=900)

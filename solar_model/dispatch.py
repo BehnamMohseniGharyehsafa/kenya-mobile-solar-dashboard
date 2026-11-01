@@ -66,7 +66,9 @@ def simulate_dispatch(weather, pv, c, initial_state=None, return_state=False, dt
             hvac_on = False
         free_cooling = (c.cooling_mode != "Passive" and room > c.cooling_setpoint_c
             and ta < room - 2 and rh < 85 and not hvac_failure)
-        fan_request = c.fan_kw if free_cooling else 0.0
+        # Keep air circulating whenever an active cooling system has power.
+        # Ventilation heat removal still requires favourable outdoor conditions.
+        fan_request = c.fan_kw if c.cooling_mode != "Passive" and not hvac_failure else 0.0
         # Ambient-dependent COP is an explicit assumed curve, not OEM test data.
         cop = max(1.2, c.cooling_cop * (1 - 0.015 * max(ta - 35, 0)))
         cooling_capacity = c.cooling_capacity_kw * max(0.5, 1 - 0.015 * max(ta - 35, 0))
@@ -111,7 +113,7 @@ def simulate_dispatch(weather, pv, c, initial_state=None, return_state=False, dt
         battery_loss = charge * (1 - c.eta_charge) + discharge * (1 / c.eta_discharge - 1)
         # The same battery conversion losses used in the electrical balance
         # become heat at the battery node. No additional I²R loss is added.
-        room_source = c.internal_heat_kw * aux_fraction + c.controls_kw * aux_fraction + inv_loss
+        room_source = (c.internal_heat_kw + c.controls_kw + fan_request) * aux_fraction + inv_loss
         # Reduced sol-air equivalent: outside heat transfer coefficient 15 W/m²K.
         solar_heat = c.shell_u_w_m2k * solar_area * c.shell_absorptivity * ghi / 15 / 1000
         thermal_substeps = max(1, int(np.ceil(dt * 3600 / 30)))
@@ -149,7 +151,7 @@ def simulate_dispatch(weather, pv, c, initial_state=None, return_state=False, dt
             "battery_balance_residual_kwh": energy - before - (charge * c.eta_charge - discharge / c.eta_discharge) * dt,
             "ems_state": mode, "load_shed": shed_latch,
             "battery_trip": battery_trip,
-            "cooling_state": "FAULT" if hvac_failure else "FREE COOLING" if free_cooling else "COMPRESSOR" if compressor_request > 0 else "PASSIVE"})
+            "cooling_state": "FAULT" if hvac_failure else "FREE COOLING" if free_cooling else "COMPRESSOR" if compressor_request > 0 else "CIRCULATION" if fan_request > 0 else "PASSIVE"})
     output = pd.DataFrame(rows, index=weather.index)
     if return_state:
         return output, {"energy": energy, "green": green, "room": room, "battery": battery,
