@@ -136,6 +136,29 @@ Original annual-dashboard baseline: **26 passed in 21.58 s**.
 - The actual running app was opened in the browser, its overview metrics were verified, and its 3D tracking page was inspected. The app runs on local port 8507 because another application already uses 8501.
 - Streamlit's Windows asynchronous socket setup required execution outside the restricted process sandbox. This was an execution-environment restriction, not an application error.
 
+## Continuous powered circulation (1 November 2026)
+
+The fan previously requested power only during free cooling, so the default
+cool enclosure showed a stationary rotor. Hybrid HVAC and Ventilation only now
+request the configured fan power continuously. Checks cover below-setpoint
+circulation, passive mode, loss of electrical supply, retained compressor/free
+cooling, the HMI/rotor command and protective circulation during E-stop.
+The fan's delivered electricity is included as enclosure heat; circulation
+alone has zero modelled heat removal. HVAC failure still removes fan power.
+
+The complete suite passed **95 tests** on Windows, including the seven Node
+animation timing/lifecycle checks. Browser verification with an explicitly
+labelled offline 23°C weather fixture showed **CIRCULATION / 0.090 kW** and
+600 rpm assumed demand. The resident rotor's frame counter advanced and the
+HMI blade transform changed while enclosure temperature remained below 27°C.
+This verifies the local fix; the public Render service requires a separate
+manual deployment.
+
+The annual default and all eight design/stress scenarios were regenerated with
+`python tools/validate_model.py` using Python 3.13.15 and pvlib 0.16.1. The results
+below include the continuous 90 W fan load and its heat. The animation still
+uses the existing local clock and adds no per-frame server requests.
+
 ## Default Nairobi whole-year result
 
 Input is the downloaded PVGIS SARAH3 TMY for −1.2864°, 36.8172°. Configuration: 19.8 kWp, 80 kWh nominal battery, 20 kW inverter, single-axis tracking, 15-minute energy control.
@@ -143,19 +166,19 @@ Input is the downloaded PVGIS SARAH3 TMY for −1.2864°, 36.8172°. Configurati
 | Output | Model result |
 |---|---:|
 | PV accepted at DC bus | 40,529.52 kWh |
-| User load served, AC | 24,303.28 kWh |
-| PV-origin energy delivered to users, AC | 24,269.07 kWh |
+| User load served, AC | 24,198.39 kWh |
+| PV-origin energy delivered to users, AC | 24,165.78 kWh |
 | User demand | 25,002.50 kWh |
-| User demand coverage | 97.20% |
-| Unserved user demand | 699.22 kWh |
-| Critical unserved demand | 300.68 kWh |
-| Curtailed DC energy | 13,020.26 kWh |
-| Cooling electricity served | 208.64 kWh |
-| Maximum battery temperature | 31.12°C |
-| Whole-run electrical balance residual | 2.96 × 10⁻¹² kWh |
+| User demand coverage | 96.78% |
+| Unserved user demand | 804.11 kWh |
+| Critical unserved demand | 356.71 kWh |
+| Curtailed DC energy | 12,368.98 kWh |
+| Cooling and circulation electricity served | 910.19 kWh |
+| Maximum battery temperature | 31.34°C |
+| Whole-run electrical balance residual | −1.34 × 10⁻¹¹ kWh |
 | Maximum per-step DC-bus residual | 2.67 × 10⁻¹⁵ kW |
 
-Unknown-origin initial charge contributes 34.21 kWh to served user loads and is excluded from renewable delivery. The default case has 11.42 kWh of unmet auxiliaries, which is displayed with the protected-control-supply limitation described in the engineering notes. A balanced energy ledger does not validate tracker UPS availability or field performance.
+Unknown-origin initial charge contributes 32.60 kWh to served user loads and is excluded from renewable delivery. The default case has 31.52 kWh of unmet auxiliaries, which is displayed with the protected-control-supply limitation described in the engineering notes. A balanced energy ledger does not validate tracker UPS availability or field performance.
 
 ## Tracking comparison
 
@@ -163,9 +186,9 @@ Each case reruns the same solar, electrical, storage, thermal and supervisory mo
 
 | Orientation | PV DC kWh | PV increase over fixed | AC user energy served kWh |
 |---|---:|---:|---:|
-| Fixed tilt, 10° north-facing | 32,775.11 | baseline | 24,063.53 |
-| Horizontal N–S single axis | 40,529.52 | 23.66% | 24,303.28 |
-| Dual axis with 60° tilt limit | 43,173.28 | 31.73% | 24,430.41 |
+| Fixed tilt, 10° north-facing | 32,775.11 | baseline | 23,881.66 |
+| Horizontal N–S single axis | 40,529.52 | 23.66% | 24,198.39 |
+| Dual axis with 60° tilt limit | 43,173.28 | 31.73% | 24,335.21 |
 
 These are deterministic model comparisons, not promised equipment gains. Fixed/dual inter-table shading is omitted. Curtailed production and storage limitations explain why increases in PV generation do not produce proportional increases in served energy.
 

@@ -99,7 +99,7 @@ def cooling_rpm(model):
     # Illustrative demand indication, not an OEM fan curve or a measured RPM.
     if model.get("cooling_kw",0)<=.001:
         return 0
-    return {"COMPRESSOR":900,"FREE COOLING":600}.get(model.get("cooling_state"),0)
+    return {"COMPRESSOR":900,"FREE COOLING":600,"CIRCULATION":600}.get(model.get("cooling_state"),0)
 
 
 def rotor_mesh(config):
