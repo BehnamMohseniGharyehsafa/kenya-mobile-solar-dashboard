@@ -15,10 +15,10 @@ from scipy.spatial import ConvexHull
 from .mechanics import layout, module_poses, project_shadow, smoothstep, sun_vector, hatch_angle
 from .landscape import terrain as _terrain, vegetation, FOLIAGE, BARK, STONE
 from .equipment import panel_housing,display_mesh,button_mesh,rotor_mesh,BUTTONS
-from .sky import add_sun
+from .sky import add_sun,world_lighting
 from .sky import SUN_DISPLAY_DISTANCE_M
 
-PALETTE = {"shell":"#e5e8df", "rib":"#c8cfc9", "steel":"#697e82", "dark":"#163542",
+PALETTE = {"shell":"#d6ddd5", "rib":"#b9c5bc", "steel":"#69797b", "dark":"#19302e",
     "pv":"#174365", "cell":"#286183", "glass":"#3b789a", "copper":"#b88450",
     "battery":"#2c5764", "green":"#64d9ad", "amber":"#f5bb58", "concrete":"#b5b7a9"}
 
@@ -290,6 +290,20 @@ def camera_pose(config,name):
     return position,focus
 
 
+def foundation_contact(c):
+    """A feathered ground-contact shade, shared by browser and PNG renders."""
+    length,width,_=c.dimensions
+    half=np.array([(length+2.1)/2,(width+2.25)/2])
+    corners=np.array([[-1,-1],[1,-1],[1,1],[-1,1]])
+    inner=corners*half
+    outer=corners*(half+.55)
+    points=np.c_[np.vstack([inner,outer]),np.full(8,.002)].astype(np.float32)
+    faces=[[4,i,(i+1)%4,(i+1)%4+4,i+4] for i in range(4)]
+    mesh=pv.PolyData(points,np.asarray(faces))
+    mesh.point_data["contact_rgba"]=np.array([[29,36,27,100]]*4+[[29,36,27,0]]*4,np.uint8)
+    return mesh
+
+
 def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
                   camera="Site overview",cutaway=False,landscape=True,shadows=True,dimensions=False,
                   size=(1440,810),stamp="",condition="",dynamic=True,annotations=True,option_layers=False):
@@ -299,6 +313,8 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
     terrain,solids,wires=static_geometry(c,False if option_layers else landscape,True if option_layers else cutaway,True)
     plotter.add_mesh(terrain,scalars="terrain_rgb",rgb=True,show_scalar_bar=False,
         ambient=.35 if night else .30,diffuse=.75,smooth_shading=True)
+    plotter.add_mesh(foundation_contact(c),scalars="contact_rgba",rgb=True,
+        show_scalar_bar=False,lighting=False,name="foundation-contact")
     def add(groups,prefix=None,visible=True):
         for color,mesh in groups[0].items():
             is_shadow=color in ("#3b4237","#454a3d")
@@ -310,16 +326,16 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
             grass=field=="grass_rgb"
             plotter.add_mesh(mesh,**appearance,show_scalar_bar=False,show_edges=False,
                 name=f"{prefix}-{color}" if prefix else None,
-                ambient=1 if is_shadow or emissive or contact or grass else .46 if color==FOLIAGE else .43 if night else .28,
+                ambient=1 if is_shadow or emissive or contact or grass else .30 if color==FOLIAGE else .35 if night else .24,
                 lighting=not (contact or grass),
-                diffuse=0 if is_shadow or contact or grass else .54 if color==FOLIAGE else .75,
+                diffuse=0 if is_shadow or contact or grass else .70 if color==FOLIAGE else .75,
                 specular=.23 if color in (PALETTE["pv"],PALETTE["steel"]) else 0 if color==FOLIAGE else .03,
                 specular_power=26,opacity=.46 if is_shadow else 1,
                 smooth_shading=color in (FOLIAGE,BARK,STONE))
             if prefix:
                 plotter.renderer.actors[f"{prefix}-{color}"].visibility=visible
         for color,mesh in groups[1].items():
-            plotter.add_mesh(mesh,color=color,line_width=1.1,lighting=False,opacity=.68)
+            plotter.add_mesh(mesh,color=color,line_width=1,lighting=False,opacity=.38)
     add((solids,wires))
     if option_layers:
         add(cover_geometry(c),"option-cover",not cutaway)
@@ -334,14 +350,12 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
     for key,(_,color) in BUTTONS.items():
         plotter.add_mesh(button_mesh(c,key),color=color,ambient=.5,specular=.35,
             specular_power=25,name=f"equipment-button-{key}")
-    direction=sun_vector(max(elevation,12),sun_azimuth)
-    sunlight=pv.Light(position=direction*100,focal_point=(0,0,0),light_type="scene light",
-        intensity=.25 if night else max(.30,1.05-cloud_pct*.006),color="#8aa7d1" if night else "#fff1d3")
+    light=world_lighting(elevation,sun_azimuth,cloud_pct)
+    sunlight=pv.Light(position=light["position"],focal_point=(0,0,0),light_type="scene light",
+        intensity=light["intensity"],color=light["color"])
     plotter.add_light(sunlight)
-    fill=pv.Light(position=(-35,-25,35),focal_point=(0,0,0),intensity=.30 if night else .38,color="#bbd7e9")
+    fill=pv.Light(position=(-35,-25,50),focal_point=(0,0,0),intensity=light["fill"],color=(.73,.84,.92))
     plotter.add_light(fill)
-    if night:
-        plotter.add_light(pv.Light(position=(3,-4,5),focal_point=(0,0,0),intensity=.65,color="#ffe2ad"))
     if cloud_pct>30 and landscape and not night:
         clouds=Geometry()
         for i in range(min(9,int(cloud_pct/12))):
@@ -357,7 +371,7 @@ def build_plotter(c,progress,tilt,azimuth,elevation,sun_azimuth,cloud_pct=0,
     scale=max(1,max(layout(c)["fence_half_x"],layout(c)["fence_half_y"])/13)
     pos=np.array(pos)*scale if camera in ("Site overview","Top plan") else pos
     plotter.camera_position=[pos,focus,(0,0,1)]
-    plotter.camera.view_angle=43
+    plotter.camera.view_angle=38
     plotter.camera.clipping_range=(.1,2*SUN_DISPLAY_DISTANCE_M)
     plotter.enable_anti_aliasing("fxaa")
     if dimensions:

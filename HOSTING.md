@@ -12,7 +12,7 @@ with the default Nairobi design and full deployment, tracking, weather, camera,
 thermal, technical and export controls. The local Streamlit dashboard still
 provides design editing and the annual engineering studies.
 
-The current sky-marker release is identified by `revision: distant-sun-v2` at `/healthz`.
+The current field-operations release is identified by `revision: field-operations-v3` at `/healthz`.
 Refresh an already-open browser tab to load the new scene. Press Ctrl+F5 if an
 older tab is cached. No additional service, paid plan, external asset host or
 Python dependency is needed for this sky update.

@@ -25,10 +25,11 @@ from .scene import CAMERAS
 from . import charts
 from .equipment import inspector,cooling_rpm,display_colors,display_lines,fan_centre
 from .branding import developer_banner
+from .sky import world_lighting
 
 WEATHER_POOL=ThreadPoolExecutor(max_workers=2,thread_name_prefix="site-weather")
-BUTTON={"background":"#203841","color":"#edf2ed","border":"1px solid #456169",
-    "borderRadius":"7px","padding":"10px 14px","cursor":"pointer","fontSize":"12px"}
+BUTTON={"background":"#1b2a2b","color":"#e4eae5","border":"1px solid #3a4b47",
+    "borderRadius":"8px","padding":"11px 14px","cursor":"pointer","fontSize":"12px"}
 ROW={"display":"flex","flexWrap":"wrap","gap":"8px","alignItems":"center","marginBottom":"10px"}
 
 
@@ -194,35 +195,59 @@ class FieldView:
         self.scene.display_mesh.cell_data["screen_rgb"]=display_colors(display_lines(m,cooling_rpm(m)))
         coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
-            developer_banner(),
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
             dcc.Store(id="fan-command",data=self.fan_command(False)),
             dcc.Store(id="fan-runtime"),
-            html.Div([html.Div([html.P("FIELD SYSTEM 01 / RENEWABLE ENERGY",className="eyebrow"),
-                html.H2(getattr(self,"public_title",None) or ["Mobile solar",html.Span(" / field lab")])]),
+            html.Div(id="scene-environment",hidden=True,**{"data-light":json.dumps(world_lighting(
+                m["sun_elevation"],m["sun_azimuth"],self.controller.weather.get("cloud_pct",0) if self.controller.weather else 0))}),
+            html.Header([html.A([html.Span("☀",className="brand-symbol"),html.Strong(["PV",html.Span("forAfrica")])],
+                href="#site-workspace",className="brand",**{"aria-label":"PVforAfrica site workspace"}),
+                html.Nav([html.A("Workspace",href="#site-workspace"),html.A("Telemetry",href="#telemetry"),
+                    html.A("Engineering",href="#engineering")],**{"aria-label":"Workspace sections"}),
+                html.Span("INTERACTIVE SIMULATION",className="simulation-badge")],className="app-masthead"),
+            html.Div([html.Div([html.P("KENYA / DISTRIBUTED ENERGY SYSTEMS",className="eyebrow"),
+                html.H2(["Mobile solar",html.Span(" / field lab")]),
+                html.P("A deployable power station. Explore the site, operate the array and follow the energy.",className="heading-caption")]),
                 html.Div([html.Strong(f"{c.site.upper()} · KENYA"),html.Br(),coordinates],className="site-chip")],
                 className="viewer-heading"),
-            html.Div([button("Deploy · open roof & install PV","deploy"),button("Retract · pack & close container","retract"),
-                button("Hold motion","hold"),button("Refresh weather","refresh")],className="command-row"),
-            html.Div([html.Label("Camera preset"),dcc.Dropdown(id="camera",options=list(CAMERAS),value="Site overview",
-                clearable=False,style={"width":"200px","color":"#142832"}),button("Reset view","reset-view"),
-                button("Inspect HMI & fan","inspect-equipment"),
-                button("Run solar-day tour","tour"),button("Use live site clock","live"),
-                html.Div([html.Label("Drag tool"),dcc.RadioItems(id="tool",options=["Orbit","Pan","Zoom"],value="Orbit",inline=True,
-                    labelStyle={"marginRight":"12px","color":"#e9f0f1"})],className="drag-tools")],className="view-toolbar"),
-            html.P("Drag to explore · Wheel / right-drag to zoom · Shift + drag to pan",className="camera-help"),
-            html.Div([html.Strong("TRANSPORT LOCKED",id="status"),html.Small(id="roof-state")],className="mechanism-status"),
-            html.Progress(id="progress",value=0,max=100),
-            html.Div([html.Div("3D SITE VIEW / "+c.site.upper(),className="scene-label"),
+            html.Section(html.Div(id="metrics"),id="telemetry",**{"aria-label":"Simulated plant telemetry"}),
+            html.Div([html.Section([
+                html.Div([html.Div([html.Span("01",className="section-index"),html.H3("Site workspace")]),
+                    html.Span("DRAG TO EXPLORE",className="section-meta")],className="section-heading"),
+                html.Div([html.Div("3D SITE VIEW / "+c.site.upper(),className="scene-label"),
                 dash_vtk.View(id="vtk",children=self.representations(),cameraPosition=list(CAMERAS["Site overview"][0]),
                 cameraViewUp=[0,0,1],background=[.57,.67,.72],
                 pickingModes=["click"],
                 interactorSettings=interaction_settings(),
                 style={"width":"100%","height":"100%"}),
                 inspector(),
-                html.Div(f"{c.array_kwp:.1f} kWp PV · {c.battery_kwh:g} kWh LFP · {c.container_ft} ft container",className="scene-note")],
+                html.Div([html.Span("3D",className="north-marker"),html.Span("ILLUSTRATIVE DIGITAL MODEL")],className="scene-scale"),
+                html.Div(f"{c.modules} modules · {c.container_ft} ft container",className="scene-note")],
                 className="scene-frame"),
-            dcc.Markdown(id="clocks"),html.Div(id="metrics"),dcc.Markdown(id="weather"),
+                html.Div([html.P("Orbit: drag · Zoom: wheel · Pan: Shift + drag",className="camera-help"),
+                    button("Reset view","reset-view")],className="scene-bottom"),
+                dcc.Markdown(id="clocks"),
+            ],className="workspace-stage",id="site-workspace"),
+            html.Aside([
+                html.Div([html.Span("02",className="section-index"),html.H3("Plant controls")],className="console-heading"),
+                html.P("DEPLOYMENT SEQUENCE",className="control-label"),
+                html.Div([html.Strong("TRANSPORT LOCKED",id="status",**{"role":"status"}),html.Small(id="roof-state")],className="mechanism-status"),
+                html.Progress(id="progress",value=0,max=100,**{"aria-label":"Array deployment progress"}),
+                html.Div([button("Deploy array ↗","deploy"),button("Retract & pack","retract"),button("Hold motion","hold")],className="command-row"),
+                html.P("Roof opens → modules unfold → supports lock → roof closes",className="sequence-caption"),
+                html.Div([html.Label("Camera preset",htmlFor="camera"),dcc.Dropdown(id="camera",options=list(CAMERAS),value="Site overview",
+                    clearable=False,style={"color":"#142832"}),
+                    button("Inspect HMI & fan","inspect-equipment"),
+                    html.Div([html.Label("Drag tool"),dcc.RadioItems(id="tool",options=["Orbit","Pan","Zoom"],value="Orbit",inline=True,
+                        labelStyle={"marginRight":"12px","color":"#e9f0f1"})],className="drag-tools"),
+                    html.P("TIME & CONDITIONS",className="control-label"),
+                    button("Run solar-day tour","tour"),button("Use live site clock","live"),button("Refresh weather","refresh")],className="view-toolbar"),
+                html.Div([html.Span("SYSTEM DESIGN",className="control-label"),
+                    html.Div([html.Strong(f"{c.array_kwp:.1f}"),html.Span("kWp solar")]),
+                    html.Div([html.Strong(f"{c.battery_kwh:g}"),html.Span("kWh LFP storage")]),
+                    html.P("Conceptual system · simulated operation",className="sequence-caption")],className="system-design"),
+            ],className="control-console",**{"aria-label":"Plant and camera controls"})],className="workspace-grid"),
+            html.Div([html.Span("SITE CONDITIONS",className="control-label"),dcc.Markdown(id="weather")],className="weather-strip"),
             html.Details([html.Summary("Clock, animation and view settings"),
                 html.Div([html.Label("Simulation clock"),dcc.Dropdown(id="clock",options=["Live site clock","Accelerated solar day","Manual sun study"],
                     value="Live site clock",clearable=False,style={"width":"245px","color":"#142832"}),
@@ -236,6 +261,8 @@ class FieldView:
                     {"label":"Landscape and vegetation","value":"landscape"},{"label":"Container cutaway","value":"cutaway"}],
                     value=["shadows","landscape"]),
                 html.P("Presentation duration is not a measured installation speed. Manual study time must lie within the downloaded weather window.")],className="settings"),
+            html.Div([html.Div([html.Span("03",className="section-index"),html.H3("Engineering insights")]),
+                html.Span("MODEL DATA / EXPORT",className="section-meta")],className="section-heading",id="engineering"),
             dcc.Tabs(id="detail-tab",value="power",children=[
                 dcc.Tab(label="Power & thermal state",value="power"),dcc.Tab(label="Mechanism & interlocks",value="mechanism"),
                 dcc.Tab(label="Weather & solar geometry",value="weather"),dcc.Tab(label="Export & performance",value="export")],
@@ -248,8 +275,9 @@ class FieldView:
                         {"label":"QHD · 2560 × 1440","value":"1440p"},{"label":"4K · 3840 × 2160","value":"4K"}],
                     style={"width":"220px","color":"#142832","fontSize":"12px"}),
                 dcc.Download(id="download")],className="export-row"),
-            html.P("KENYA / MOBILE SOLAR LAB · Simulated energy and mechanism states. Illustrative landscape; weather provenance and engineering assumptions remain available below the view.",
+            html.P("BehnamProject-PVforAfrica · Simulated energy and mechanism states. Illustrative landscape; model weather, not site measurements. Initial stored energy is excluded from renewable generation.",
                 className="viewer-footer"),
+            developer_banner(),
         ],className="viewer-shell")
 
     def step(self, event, mode, manual, speed, duration, options, detail):
@@ -380,6 +408,7 @@ class FieldView:
             return f"{v*multiplier:.{decimals}f}" if v is not None else "N/A"
         state=m["state"] if c.emergency_stopped or c.restart_required else "MOTION HELD" if c.held else "DEPLOYING" if c.moving and c.target==1 else "RETRACTING" if c.moving else m["state"]
         targets={"hmi-state":{"children":state},"hmi-pv":{"children":value("pv_dc_kw",2)},
+            "scene-environment":{"data-light":json.dumps(world_lighting(m["sun_elevation"],m["sun_azimuth"],c.weather.get("cloud_pct",0) if c.weather else 0))},
             "hmi-soc":{"children":value("soc",1,100)},"hmi-temp":{"children":value("battery_temp_c")},
             "hmi-load":{"children":value("user_served_kw",2)},
             "hmi-contactor":{"children":"PV CONTACTOR · "+("CLOSED" if c.pv_connected else "ISOLATED")},

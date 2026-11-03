@@ -91,3 +91,49 @@ assert.deepEqual(range,[500,50000]);
 """
     result = subprocess.run([shutil.which("node"), "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=15)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_world_lighting_tracks_sun_and_dims_for_cloud_and_night():
+    from solar_model.sky import world_lighting
+    east=world_lighting(30,90)
+    west=world_lighting(30,270)
+    assert east['position'][0]>0 and west['position'][0]<0
+    assert np.linalg.norm(east['position'])==pytest.approx(100)
+    assert world_lighting(30,90,90)['intensity']<east['intensity']
+    night=world_lighting(-20,90)
+    assert night['intensity']<east['intensity'] and night['fill']<east['fill']
+    assert night['color'][2]>night['color'][0]
+    assert world_lighting(6,90)['color'][2]<east['color'][2]
+
+
+@pytest.mark.skipif(shutil.which('node') is None,reason='Node checks the browser lighting adapter')
+def test_browser_world_lights_update_without_reallocating_or_following_camera():
+    from solar_model.vtk_sky import _LIGHT
+    script="""
+const assert=require('node:assert/strict');
+let data={position:[80,0,60],color:[1,.96,.88],intensity:1,fill:.38};
+const node={getAttribute:()=>JSON.stringify(data)};
+const document={getElementById:()=>node};
+let created=0,cleared=0;
+const lights=[];
+const r={renderer:{removeAllLights:()=>{cleared++;},makeLight:()=>{
+ created++; const l={};
+ l.setLightTypeToSceneLight=()=>{l.world=true;};
+ l.setFocalPoint=(...v)=>{l.focus=v;};l.setPositional=v=>{l.positional=v;};
+ l.setPosition=(...v)=>{l.position=v;};l.setColor=(...v)=>{l.color=v;};
+ l.setIntensity=v=>{l.intensity=v;};return l;
+},addLight:l=>lights.push(l)}};
+function update(){
+"""+_LIGHT+"""
+}
+update();update();
+assert.equal(created,2);assert.equal(cleared,1);
+assert.equal(lights[0].world,true);assert.equal(lights[0].positional,false);
+assert.deepEqual(lights[0].position,[80,0,60]);
+data={position:[-80,0,60],color:[.54,.65,.82],intensity:.18,fill:.16};
+update();
+assert.equal(created,2);assert.deepEqual(lights[0].position,[-80,0,60]);
+assert.equal(lights[0].intensity,.18);assert.equal(lights[1].intensity,.16);
+"""
+    result=subprocess.run([shutil.which('node'),'-e',script],capture_output=True,text=True,timeout=15)
+    assert result.returncode==0,result.stdout+result.stderr

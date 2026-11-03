@@ -7,7 +7,7 @@ from PIL import Image
 from .mechanics import layout,module_geometry,smoothstep,hatch_angle,project_shadow,sun_vector
 from .scene import build_plotter,CAMERAS,PALETTE,camera_pose
 from .landscape import BARK
-from .sky import add_sun,sun_display_position
+from .sky import add_sun,sun_display_position,world_lighting
 
 
 def _module_template(c):
@@ -17,13 +17,19 @@ def _module_template(c):
     def quad(x0,y0,x1,y1,z,color):
         vertices.extend([(x0,y0,z),(x1,y0,z),(x1,y1,z),(x0,y1,z)])
         colors.append(color)
-    quad(-w/2,-length/2,w/2,length/2,0,(190,205,201))
-    quad(-w/2+.025,-length/2+.025,w/2-.025,length/2-.025,.005,(18,49,72))
+    quad(-w/2,-length/2,w/2,length/2,0,(176,188,187))
+    quad(-w/2+.025,-length/2+.025,w/2-.025,length/2-.025,.005,(14,26,36))
     for a in range(6):
         for b in range(12):
             quad(-w/2+(a+.07)*w/6,-length/2+(b+.05)*length/12,
                 -w/2+(a+.93)*w/6,-length/2+(b+.95)*length/12,.009,
-                (29,79,111) if (a+b)%2 else (35,88,119))
+                (25,43,58) if (a+b)%2 else (28,47,61))
+    # Fine silver busbars, batched into the same module actor. Narrow lines and
+    # darker monocrystalline cells read as glass/metal rather than blue tiles.
+    for a in range(6):
+        for offset in (.30,.70):
+            x=-w/2+(a+offset)*w/6
+            quad(x-.0009,-length/2+.025,x+.0009,length/2-.025,.010,(92,113,125))
     mesh=pv.PolyData(np.asarray(vertices,np.float32),
         np.c_[np.full(len(colors),4),np.arange(len(vertices)).reshape(-1,4)])
     mesh.cell_data["rgb"]=np.asarray(colors,np.uint8)
@@ -62,7 +68,7 @@ class InteractiveScene:
         self.roof_mesh=self._batch(self.roof_template,2)
         self.rail_mesh=self._batch(self.rail_template,4)
         self.modules=[self.plotter.add_mesh(self.module_mesh,scalars="rgb",rgb=True,show_scalar_bar=False,
-            ambient=.32,diffuse=.7,specular=.2,name="all-modules")]
+            ambient=.23,diffuse=.72,specular=.42,specular_power=55,name="all-modules")]
         self.posts=[self.plotter.add_mesh(self.post_mesh,color=PALETTE["steel"],name="all-posts")]
         self.feet=[self.plotter.add_mesh(self.foot_mesh,color="#9c9d8c",name="all-feet")]
         self.hatches=[self.plotter.add_mesh(self.roof_mesh,color=PALETTE["shell"],name="both-hatches")]
@@ -147,8 +153,11 @@ class InteractiveScene:
             self._set_points(self.box_shadow,project_shadow(points,elevation,sun_azimuth,.015))
         self.sun.visibility=elevation>0
         self.sun.position=sun_display_position(elevation,sun_azimuth)
-        self.light.position=sun_vector(max(elevation,12),sun_azimuth)*100
-        self.light.intensity=.25 if elevation<=0 else max(.30,1.05-cloud*.006)
+        light=world_lighting(elevation,sun_azimuth,cloud)
+        self.light.position=light["position"]
+        self.light.color=light["color"]
+        self.light.intensity=light["intensity"]
+        self.plotter.renderer.lights[1].intensity=light["fill"]
         self.transforms_sent+=1
         return True
 

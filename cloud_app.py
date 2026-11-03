@@ -42,7 +42,7 @@ def create_app():
     @app.get("/healthz")
     def health():
         return jsonify(status="ok",project="BehnamProject-PVforAfrica",
-            revision=os.environ.get("PV_UI_REVISION","base"))
+            revision="field-operations-v3")
 
     @app.after_request
     def response_headers(response):
