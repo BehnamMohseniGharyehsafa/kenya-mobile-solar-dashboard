@@ -21,6 +21,16 @@ def sun_display_position(elevation, azimuth):
     return SUN_DISPLAY_DISTANCE_M * sun_vector(elevation, azimuth)
 
 
+def world_lighting(elevation,azimuth,cloud=0):
+    """Shared world-space sun and cool sky fill for VTK and vtk.js."""
+    night=elevation<=0
+    warm=np.clip((18-elevation)/15,0,1)
+    return {"position":(sun_vector(max(elevation,12),azimuth)*100).tolist(),
+        "color":[.54,.65,.82] if night else [1.,.96-.16*float(warm),.88-.26*float(warm)],
+        "intensity":.18 if night else max(.35,1.05-cloud*.006),
+        "fill":.16 if night else .38}
+
+
 def add_sun(plotter, elevation, azimuth):
     actor = plotter.add_mesh(pv.Sphere(radius=SUN_DISPLAY_RADIUS_M,
         theta_resolution=16, phi_resolution=12), color="#ffe4a0", lighting=False,

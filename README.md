@@ -11,6 +11,10 @@ service can be guaranteed unhackable or always available on a free plan.
 
 **[Open the public simulation: BehnamProject-PVforAfrica](https://behnamproject-pvforafrica.onrender.com/)**
 
+The November 2026 field-operations redesign adds a dedicated plant console,
+responsive telemetry, refined procedural materials and world-space sunlight
+that follows the model sun. See [UI design and Open 3D Skills provenance](UI_DESIGN.md).
+
 The free demonstration supports two active simulation tabs. After inactivity,
 the host may take about a minute to wake up. The owner can suspend/resume public
 access in Render; see [hosting and access controls](HOSTING.md).

@@ -42,12 +42,16 @@ def ground_colors(x,y,c,d):
         return (corner(0,0)*(1-u)+corner(1,0)*u)*(1-v)+(corner(0,1)*(1-u)+corner(1,1)*u)*v
     broad=noise(7)*1.4+noise(2)*.65+noise(.7)*.25
     fine=np.sin(x*7.13+y*5.87)*np.cos(y*8.71-x*6.31)
-    base=np.array([148,118,81] if arid else [83,121,58])
+    base=np.array([148,118,81] if arid else [102,118,72])
     colors=base+broad[...,None]*[7,10,4]+fine[...,None]*[4,5,2]
     inside=(np.abs(x)<d["fence_half_x"])&(np.abs(y)<d["fence_half_y"])
-    colors=np.where(inside[...,None],np.array([166,160,140])+fine[...,None]*10,colors)
+    aggregate=noise(.22)*7+noise(.65)*4
+    colors=np.where(inside[...,None],np.array([153,149,130])+fine[...,None]*5+aggregate[...,None],colors)
     road=(np.abs(x-1)<1.75)&(y<-d["fence_half_y"])
     colors=np.where(road[...,None],np.array([154,131,99])+fine[...,None]*7,colors)
+    # Two worn wheel paths keep the entrance from looking like a painted stripe.
+    ruts=road&((np.abs(x-.15)<.22)|(np.abs(x-1.85)<.22))
+    colors=np.where(ruts[...,None],colors-[11,10,8],colors)
     return np.clip(colors,0,255).astype(np.uint8)
 
 
@@ -104,7 +108,7 @@ def _tree(x,y,size,rng,arid,ground):
     """Branching silhouettes with irregular clustered crowns and small leaves."""
     origin=np.array([x,y,ground])
     # Acacia-like spreading crowns alternate with fuller highland silhouettes.
-    spreading=arid or rng.random()<.48
+    spreading=arid or rng.random()<.74
     crown_z=2.35 if spreading else 2.65
     crown_width=1.55 if spreading else 1.12
     segments=[]
@@ -122,14 +126,14 @@ def _tree(x,y,size,rng,arid,ground):
         centers.append(tip+size*np.array([rng.uniform(-.35,.35),rng.uniform(-.32,.32),rng.uniform(.04,.26)]))
     centers.append(origin+size*np.array([.05,0,crown_z+.12]))
     points_all,faces_all,colors_all=[],[],[]
-    base_color=np.array([100,124,55] if arid else [53,105,49])
+    base_color=np.array([100,113,58] if arid else [67,95,49])
     vertex_offset=0
     for index,center in enumerate(centers):
         # Three main crown lobes use a smoother cached template. Secondary
         # clusters stay coarse; this concentrates triangles on the silhouette.
         template,faces=_crown_template(2 if index in (0,6,12) else 1)
-        radii=size*np.array([rng.uniform(.48,.68),rng.uniform(.43,.64),rng.uniform(.31,.43) if spreading else rng.uniform(.52,.67)])
-        radial=1+rng.uniform(-.085,.085,(len(template),1))
+        radii=size*np.array([rng.uniform(.48,.72),rng.uniform(.43,.68),rng.uniform(.23,.34) if spreading else rng.uniform(.40,.54)])
+        radial=1+rng.uniform(-.16,.16,(len(template),1))
         points=template*radii*radial+center
         tint=rng.uniform(-11,15)+template[:,2:3]*9
         colors=np.clip(base_color+tint+np.array([0,4,-1]),0,255)
