@@ -195,6 +195,7 @@ class FieldView:
         self.scene.display_mesh.cell_data["screen_rgb"]=display_colors(display_lines(m,cooling_rpm(m)))
         coordinates=f"{abs(c.latitude):.4f}° {'N' if c.latitude>=0 else 'S'} · {abs(c.longitude):.4f}° {'E' if c.longitude>=0 else 'W'}"
         return html.Div([
+            developer_banner(),
             dcc.Store(id="session",data=session),dcc.Interval(id="tick",interval=1000,n_intervals=0),
             dcc.Store(id="fan-command",data=self.fan_command(False)),
             dcc.Store(id="fan-runtime"),
@@ -277,7 +278,6 @@ class FieldView:
                 dcc.Download(id="download")],className="export-row"),
             html.P("BehnamProject-PVforAfrica · Simulated energy and mechanism states. Illustrative landscape; model weather, not site measurements. Initial stored energy is excluded from renewable generation.",
                 className="viewer-footer"),
-            developer_banner(),
         ],className="viewer-shell")
 
     def step(self, event, mode, manual, speed, duration, options, detail):
