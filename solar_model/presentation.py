@@ -19,10 +19,10 @@ button:focus-visible, input:focus-visible { outline:2px solid #f2c16b; outline-o
 .simulation-badge { color:#becaab; border:1px solid #46533a; border-radius:20px; padding:7px 12px;
  font-size:9px; letter-spacing:1.2px; white-space:nowrap; }
 .simulation-badge:before { content:''; display:inline-block; width:5px; height:5px; border-radius:50%; background:#c6d99b; margin-right:7px; }
-.developer-banner { display:flex; flex-wrap:wrap; gap:6px 20px; padding:18px 0 0; margin-top:18px;
- border-top:1px solid #2b3835; font-size:11px; line-height:1.5; color:#91a09a; }
-.developer-banner strong { color:#c0cbc2; font-size:11px; font-weight:600; }
-.developer-banner a { width:fit-content; overflow-wrap:anywhere; }
+.developer-banner { display:flex; flex-direction:column; align-items:center; gap:3px; padding:16px 0; margin:0;
+ border-bottom:1px solid #2b3835; text-align:center; font-size:13px; line-height:1.6; color:#a9b9ae; }
+.developer-banner strong { color:#e2eadb; font-size:14px; font-weight:600; }
+.developer-banner a { max-width:100%; width:fit-content; overflow-wrap:anywhere; }
 .viewer-heading { display:flex; justify-content:space-between; gap:18px; align-items:center; margin-bottom:25px; }
 .eyebrow { color:#a8b98a; font-size:9px; font-weight:600; letter-spacing:2.1px; margin:0 0 10px; }
 .viewer-heading h2 { font-size:clamp(26px,2.7vw,42px); font-weight:450; letter-spacing:-1.5px; margin:0; color:#edf0e7; }

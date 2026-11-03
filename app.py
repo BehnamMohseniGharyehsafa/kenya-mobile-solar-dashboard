@@ -22,7 +22,9 @@ from solar_model.branding import DEVELOPER,QUALIFICATION,EMAIL
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="Kenya | Mobile solar lab", page_icon="☀️", layout="wide",initial_sidebar_state="collapsed")
-st.markdown(f"**Developer: {DEVELOPER}**  \n{QUALIFICATION}  \n[{EMAIL}](mailto:{EMAIL})")
+st.html(f'<header style="text-align:center;line-height:1.6;padding:0 0 16px;overflow-wrap:anywhere">'
+    f'<strong>Developer: {DEVELOPER}</strong><br>{QUALIFICATION}<br>'
+    f'<a href="mailto:{EMAIL}">{EMAIL}</a></header>')
 
 
 @st.cache_data(show_spinner=False)
